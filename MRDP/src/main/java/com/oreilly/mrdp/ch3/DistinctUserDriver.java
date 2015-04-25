@@ -67,7 +67,7 @@ public class DistinctUserDriver {
 			System.exit(2);
 		}
 
-		Job job = new Job(conf, "StackOverflow Distinct Users");
+		Job job = Job.getInstance(conf, "StackOverflow Distinct Users");
 		job.setJarByClass(DistinctUserDriver.class);
 		job.setMapperClass(SODistinctUserMapper.class);
 		job.setCombinerClass(SODistinctUserReducer.class);

@@ -209,7 +209,7 @@ public class ReduceSideJoinDriver {
 			System.exit(2);
 		}
 
-		Job job = new Job(conf, "Reduce Side Join");
+		Job job = Job.getInstance(conf, "Reduce Side Join");
 
 		// Configure the join type
 		job.getConfiguration().set("join.type", joinType);

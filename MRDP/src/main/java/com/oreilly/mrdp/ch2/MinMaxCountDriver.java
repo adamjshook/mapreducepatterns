@@ -125,7 +125,7 @@ public class MinMaxCountDriver {
 			System.err.println("Usage: MinMaxCountDriver <in> <out>");
 			System.exit(2);
 		}
-		Job job = new Job(conf, "StackOverflow Comment Date Min Max Count");
+		Job job = Job.getInstance(conf, "StackOverflow Comment Date Min Max Count");
 		job.setJarByClass(MinMaxCountDriver.class);
 		job.setMapperClass(SOMinMaxCountMapper.class);
 		job.setCombinerClass(SOMinMaxCountReducer.class);

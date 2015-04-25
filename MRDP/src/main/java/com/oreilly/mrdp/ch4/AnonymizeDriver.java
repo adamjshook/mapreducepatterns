@@ -88,7 +88,7 @@ public class AnonymizeDriver {
 		}
 
 		// Configure the join type
-		Job job = new Job(conf, "Anonymize");
+		Job job = Job.getInstance(conf, "Anonymize");
 		job.setJarByClass(AnonymizeDriver.class);
 
 		job.setMapperClass(AnonymizeMapper.class);

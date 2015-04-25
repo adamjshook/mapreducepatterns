@@ -96,7 +96,7 @@ public class WikipediaIndex {
 			System.err.println("Usage: WikipediallIndex <in> <out>");
 			System.exit(2);
 		}
-		Job job = new Job(conf, "StackOverflow Wikipedia URL Inverted Index");
+		Job job = Job.getInstance(conf, "StackOverflow Wikipedia URL Inverted Index");
 		job.setJarByClass(WikipediaIndex.class);
 		job.setMapperClass(SOWikipediaExtractor.class);
 		job.setCombinerClass(Concatenator.class);

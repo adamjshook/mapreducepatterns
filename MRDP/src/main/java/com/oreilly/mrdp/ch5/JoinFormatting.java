@@ -49,7 +49,7 @@ public class JoinFormatting {
 		}
 
 		// Configure the join type
-		Job job = new Job(conf, "Replicated Join");
+		Job job = Job.getInstance(conf, "Replicated Join");
 		job.setJarByClass(ReplicatedJoinDriver.class);
 
 		job.setMapperClass(ReplicatedJoinMapper.class);

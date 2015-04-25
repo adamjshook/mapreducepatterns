@@ -218,7 +218,7 @@ public class PartitionPruningOutputDriver {
 
 		Path inputPath = new Path(otherArgs[0]);
 
-		Job job = new Job(conf, "Redis Last Access Output");
+		Job job = Job.getInstance(conf, "Redis Last Access Output");
 		job.setJarByClass(PartitionPruningOutputDriver.class);
 
 		job.setMapperClass(RedisLastAccessOutputMapper.class);

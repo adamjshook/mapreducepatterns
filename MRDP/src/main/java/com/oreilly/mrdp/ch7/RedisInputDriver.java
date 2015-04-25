@@ -26,8 +26,7 @@ import redis.clients.jedis.Jedis;
 
 public class RedisInputDriver {
 
-	public static class RedisHashInputFormat extends
-			InputFormat<Text, Text> {
+	public static class RedisHashInputFormat extends InputFormat<Text, Text> {
 
 		public static final String REDIS_HOSTS_CONF = "mapred.redishashinputformat.hosts";
 		public static final String REDIS_HASH_KEY_CONF = "mapred.redishashinputformat.key";
@@ -121,6 +120,7 @@ public class RedisInputDriver {
 				keyValueMapIter = jedis.hgetAll(hashKey).entrySet().iterator();
 				LOG.info("Got " + totalKVs + " from " + hashKey);
 				jedis.disconnect();
+				jedis.close();
 			}
 
 			@Override
@@ -166,7 +166,8 @@ public class RedisInputDriver {
 		}
 	}
 
-	public static class RedisHashInputSplit extends InputSplit implements Writable {
+	public static class RedisHashInputSplit extends InputSplit implements
+			Writable {
 
 		/**
 		 * The Redis instance location
@@ -229,7 +230,7 @@ public class RedisInputDriver {
 		String hashKey = otherArgs[1];
 		Path outputDir = new Path(otherArgs[2]);
 
-		Job job = new Job(conf, "Redis Input");
+		Job job = Job.getInstance(conf, "Redis Input");
 		job.setJarByClass(RedisInputDriver.class);
 
 		// Use the identity mapper

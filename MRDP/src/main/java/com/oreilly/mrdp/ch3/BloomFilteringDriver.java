@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.StringTokenizer;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.NullWritable;
@@ -33,8 +32,7 @@ public class BloomFilteringDriver {
 		@Override
 		protected void setup(Context context) throws IOException,
 				InterruptedException {
-			URI[] files = DistributedCache.getCacheFiles(context
-					.getConfiguration());
+			URI[] files = context.getCacheFiles();
 
 			// if the files in the distributed cache are set
 			if (files != null && files.length == 1) {
@@ -99,7 +97,7 @@ public class BloomFilteringDriver {
 
 		FileSystem.get(conf).delete(new Path(otherArgs[2]), true);
 
-		Job job = new Job(conf, "StackOverflow Bloom Filtering");
+		Job job = Job.getInstance(conf, "StackOverflow Bloom Filtering");
 		job.setJarByClass(BloomFilteringDriver.class);
 		job.setMapperClass(BloomFilteringMapper.class);
 		job.setNumReduceTasks(0);
@@ -108,9 +106,8 @@ public class BloomFilteringDriver {
 		FileInputFormat.addInputPath(job, new Path(otherArgs[0]));
 		FileOutputFormat.setOutputPath(job, new Path(otherArgs[2]));
 
-		DistributedCache.addCacheFile(
-				FileSystem.get(conf).makeQualified(new Path(otherArgs[1]))
-						.toUri(), job.getConfiguration());
+		job.addCacheFile(FileSystem.get(conf)
+				.makeQualified(new Path(otherArgs[1])).toUri());
 
 		System.exit(job.waitForCompletion(true) ? 0 : 1);
 	}

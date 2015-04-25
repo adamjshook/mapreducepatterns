@@ -5,12 +5,12 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -111,8 +111,7 @@ public class JobChainingDriver {
 			mos = new MultipleOutputs<Text, Text>(context);
 
 			try {
-				Path[] files = DistributedCache.getLocalCacheFiles(context
-						.getConfiguration());
+				URI[] files = context.getCacheFiles();
 
 				if (files == null || files.length == 0) {
 					throw new RuntimeException(
@@ -120,7 +119,7 @@ public class JobChainingDriver {
 				}
 
 				// Read all files in the DistributedCache
-				for (Path p : files) {
+				for (URI p : files) {
 					BufferedReader rdr = new BufferedReader(
 							new InputStreamReader(
 									new GZIPInputStream(new FileInputStream(
@@ -141,6 +140,8 @@ public class JobChainingDriver {
 							userIdToReputation.put(userId, reputation);
 						}
 					}
+
+					rdr.close();
 				}
 
 			} catch (IOException e) {
@@ -193,7 +194,7 @@ public class JobChainingDriver {
 		Path outputDir = new Path(otherArgs[2]);
 
 		// Setup first job to counter user posts
-		Job countingJob = new Job(conf, "JobChaining-Counting");
+		Job countingJob = Job.getInstance(conf, "JobChaining-Counting");
 		countingJob.setJarByClass(JobChainingDriver.class);
 
 		// Set our mapper and reducer, we can use the API's long sum reducer for
@@ -229,7 +230,8 @@ public class JobChainingDriver {
 			double averagePostsPerUser = numRecords / numUsers;
 
 			// Setup binning job
-			Job binningJob = new Job(new Configuration(), "JobChaining-Binning");
+			Job binningJob = Job.getInstance(new Configuration(),
+					"JobChaining-Binning");
 			binningJob.setJarByClass(JobChainingDriver.class);
 
 			// Set mapper and the average posts per user
@@ -257,8 +259,7 @@ public class JobChainingDriver {
 			// Add the user files to the DistributedCache
 			FileStatus[] userFiles = FileSystem.get(conf).listStatus(userInput);
 			for (FileStatus status : userFiles) {
-				DistributedCache.addCacheFile(status.getPath().toUri(),
-						binningJob.getConfiguration());
+				binningJob.addCacheFile(status.getPath().toUri());
 			}
 
 			// Execute job and grab exit code

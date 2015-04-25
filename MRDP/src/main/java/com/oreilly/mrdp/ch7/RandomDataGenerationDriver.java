@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Random;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
@@ -73,7 +72,7 @@ public class RandomDataGenerationDriver {
 		}
 
 		public static void setRandomWordList(Job job, Path file) {
-			DistributedCache.addCacheFile(file.toUri(), job.getConfiguration());
+			job.addCacheFile(file.toUri());
 		}
 
 		public static class RandomStackoverflowRecordReader extends
@@ -105,8 +104,7 @@ public class RandomDataGenerationDriver {
 				}
 
 				// Get the list of random words from the DistributedCache
-				URI[] files = DistributedCache.getCacheFiles(context
-						.getConfiguration());
+				URI[] files = context.getCacheFiles();
 
 				if (files.length == 0) {
 					throw new InvalidParameterException(
@@ -241,7 +239,7 @@ public class RandomDataGenerationDriver {
 		Path wordList = new Path(otherArgs[2]);
 		Path outputDir = new Path(otherArgs[3]);
 
-		Job job = new Job(conf, "RandomDataGenerationDriver");
+		Job job = Job.getInstance(conf, "RandomDataGenerationDriver");
 		job.setJarByClass(RandomDataGenerationDriver.class);
 
 		job.setNumReduceTasks(0);

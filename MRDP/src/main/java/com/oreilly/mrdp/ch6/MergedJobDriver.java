@@ -158,7 +158,7 @@ public class MergedJobDriver {
 		}
 
 		// Configure the merged job
-		Job job = new Job(conf, "MergedJob");
+		Job job = Job.getInstance(conf, "MergedJob");
 		job.setJarByClass(MergedJobDriver.class);
 
 		job.setMapperClass(AnonymizeDistinctMergedMapper.class);

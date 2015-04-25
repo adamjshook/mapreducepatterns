@@ -93,7 +93,7 @@ public class CountNumUsersByStateDriver {
 		Path input = new Path(otherArgs[0]);
 		Path outputDir = new Path(otherArgs[1]);
 
-		Job job = new Job(conf, "Count Num Users By State");
+		Job job = Job.getInstance(conf, "Count Num Users By State");
 		job.setJarByClass(CountNumUsersByStateDriver.class);
 
 		job.setMapperClass(CountNumUsersByStateMapper.class);

@@ -168,6 +168,7 @@ public class PartitionPruningInputDriver {
 							hashIterator = jedis.hgetAll(strKey).entrySet()
 									.iterator();
 							jedis.disconnect();
+							jedis.close();
 						}
 					}
 
@@ -285,7 +286,7 @@ public class PartitionPruningInputDriver {
 		String lastAccessMonths = otherArgs[0];
 		Path outputDir = new Path(otherArgs[1]);
 
-		Job job = new Job(conf, "Redis Input");
+		Job job = Job.getInstance(conf, "Redis Input");
 		job.setJarByClass(PartitionPruningInputDriver.class);
 
 		// Use the identity mapper

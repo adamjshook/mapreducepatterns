@@ -80,7 +80,7 @@ public class UniqueUserCount {
 		Path tmpout = new Path(otherArgs[1] + "_tmp");
 		FileSystem.get(new Configuration()).delete(tmpout, true);
 		Path finalout = new Path(otherArgs[1]);
-		Job job = new Job(conf, "StackOverflow Unique User Count");
+		Job job = Job.getInstance(conf, "StackOverflow Unique User Count");
 		job.setJarByClass(UniqueUserCount.class);
 		job.setMapperClass(SODistinctUserMapper.class);
 		job.setCombinerClass(SODistinctUserReducer.class);
@@ -94,7 +94,7 @@ public class UniqueUserCount {
 
 		boolean exitCode = job.waitForCompletion(true);
 		if (exitCode) {
-			job = new Job(conf, "Stack Overflow Unique User Count");
+			job = Job.getInstance(conf, "Stack Overflow Unique User Count");
 			job.setJarByClass(UniqueUserCount.class);
 			job.setMapperClass(SOUserCounterMapper.class);
 			job.setCombinerClass(IntSumReducer.class);

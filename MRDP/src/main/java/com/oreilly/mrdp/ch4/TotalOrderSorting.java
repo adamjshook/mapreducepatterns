@@ -78,7 +78,7 @@ public class TotalOrderSorting {
 		FileSystem.get(new Configuration()).delete(partitionFile, true);
 
 		// Configure job to prepare for sampling
-		Job sampleJob = new Job(conf, "TotalOrderSortingStage");
+		Job sampleJob = Job.getInstance(conf, "TotalOrderSortingStage");
 		sampleJob.setJarByClass(TotalOrderSorting.class);
 
 		// Use the mapper implementation with zero reduce tasks
@@ -98,7 +98,7 @@ public class TotalOrderSorting {
 		int code = sampleJob.waitForCompletion(true) ? 0 : 1;
 
 		if (code == 0) {
-			Job orderJob = new Job(conf, "TotalOrderSortingStage");
+			Job orderJob = Job.getInstance(conf, "TotalOrderSortingStage");
 			orderJob.setJarByClass(TotalOrderSorting.class);
 
 			// Here, use the identity mapper to output the key/value pairs in

@@ -8,7 +8,6 @@ import com.oreilly.mrdp.ch6.ParallelJobs.AverageReputationMapper;
 import com.oreilly.mrdp.ch6.ParallelJobs.AverageReputationReducer;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -80,7 +79,8 @@ public class JobControlDriver {
 	public static Job getCountingJob(Path postInput, Path outputDirIntermediate)
 			throws IOException {
 		// Setup first job to counter user posts
-		Job countingJob = new Job(new Configuration(), "JobChaining-Counting");
+		Job countingJob = Job.getInstance(new Configuration(),
+				"JobChaining-Counting");
 		countingJob.setJarByClass(JobChainingDriver.class);
 
 		// Set our mapper and reducer, we can use the API's long sum reducer for
@@ -118,7 +118,8 @@ public class JobControlDriver {
 		double averagePostsPerUser = numRecords / numUsers;
 
 		// Setup binning job
-		Job binningJob = new Job(new Configuration(), "JobChaining-Binning");
+		Job binningJob = Job.getInstance(new Configuration(),
+				"JobChaining-Binning");
 		binningJob.setJarByClass(JobChainingDriver.class);
 
 		// Set mapper and the average posts per user
@@ -147,8 +148,7 @@ public class JobControlDriver {
 		FileStatus[] userFiles = FileSystem.get(new Configuration())
 				.listStatus(userInput);
 		for (FileStatus status : userFiles) {
-			DistributedCache.addCacheFile(status.getPath().toUri(),
-					binningJob.getConfiguration());
+			binningJob.addCacheFile(status.getPath().toUri());
 		}
 
 		// Execute job and grab exit code
@@ -158,7 +158,7 @@ public class JobControlDriver {
 	public static Configuration getAverageJobConf(Path averageOutputDir,
 			Path outputDir) throws IOException {
 
-		Job averageJob = new Job(new Configuration(), "ParallelJobs");
+		Job averageJob = Job.getInstance(new Configuration(), "ParallelJobs");
 		averageJob.setJarByClass(ParallelJobs.class);
 
 		averageJob.setMapperClass(AverageReputationMapper.class);

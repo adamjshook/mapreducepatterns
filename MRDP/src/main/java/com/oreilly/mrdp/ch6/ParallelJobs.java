@@ -108,7 +108,7 @@ public class ParallelJobs {
 			Path outputDir) throws IOException, InterruptedException,
 			ClassNotFoundException {
 
-		Job job = new Job(conf, "ParallelJobs");
+		Job job = Job.getInstance(conf, "ParallelJobs");
 		job.setJarByClass(ParallelJobs.class);
 
 		job.setMapperClass(AverageReputationMapper.class);

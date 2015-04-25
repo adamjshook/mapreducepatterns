@@ -89,7 +89,7 @@ public class CartesianFormatter {
 		}
 
 		// Configure the join type
-		Job job = new Job(conf, "CartesianFormatter");
+		Job job = Job.getInstance(conf, "CartesianFormatter");
 		job.setJarByClass(CartesianFormatter.class);
 
 		job.setMapperClass(CommentMapper.class);

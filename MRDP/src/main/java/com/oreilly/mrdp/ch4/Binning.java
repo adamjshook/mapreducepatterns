@@ -102,7 +102,7 @@ public class Binning {
 			System.exit(1);
 		}
 
-		Job job = new Job(conf, "Binning");
+		Job job = Job.getInstance(conf, "Binning");
 		job.setJarByClass(Binning.class);
 		job.setMapperClass(BinningMapper.class);
 		job.setNumReduceTasks(0);

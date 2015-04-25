@@ -129,7 +129,7 @@ public class MedianStdDevDriver {
 			System.err.println("Usage: MedianStdDevDriver <in> <out>");
 			System.exit(2);
 		}
-		Job job = new Job(conf,
+		Job job = Job.getInstance(conf,
 				"StackOverflow Comment Length Median StdDev By Hour");
 		job.setJarByClass(MedianStdDevDriver.class);
 		job.setMapperClass(SOMedianStdDevMapper.class);

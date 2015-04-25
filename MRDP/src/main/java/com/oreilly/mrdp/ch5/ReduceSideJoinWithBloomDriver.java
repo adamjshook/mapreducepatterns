@@ -4,11 +4,11 @@ import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -65,8 +65,7 @@ public class ReduceSideJoinWithBloomDriver {
 			@Override
 			public void setup(Context context) {
 				try {
-					Path[] files = DistributedCache.getLocalCacheFiles(context
-							.getConfiguration());
+					URI[] files = context.getCacheFiles();
 
 					if (files.length != 0) {
 						DataInputStream strm = new DataInputStream(
@@ -242,7 +241,7 @@ public class ReduceSideJoinWithBloomDriver {
 				System.exit(2);
 			}
 
-			Job job = new Job(conf, "Reduce Side Join");
+			Job job = Job.getInstance(conf, "Reduce Side Join");
 			// Configure the join type
 			job.getConfiguration().set("join.type", joinType);
 			job.setJarByClass(ReduceSideJoinWithBloomDriver.class);

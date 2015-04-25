@@ -107,7 +107,7 @@ public class AverageDriver {
 			System.err.println("Usage: AverageDriver <in> <out>");
 			System.exit(2);
 		}
-		Job job = new Job(conf, "StackOverflow Average Comment Length");
+		Job job = Job.getInstance(conf, "StackOverflow Average Comment Length");
 		job.setJarByClass(AverageDriver.class);
 		job.setMapperClass(SOAverageMapper.class);
 		job.setCombinerClass(SOAverageReducer.class);

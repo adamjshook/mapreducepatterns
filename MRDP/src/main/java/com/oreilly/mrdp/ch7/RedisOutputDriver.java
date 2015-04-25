@@ -176,7 +176,7 @@ public class RedisOutputDriver {
 		String hosts = otherArgs[1];
 		String hashName = otherArgs[2];
 
-		Job job = new Job(conf, "Redis Output");
+		Job job = Job.getInstance(conf, "Redis Output");
 		job.setJarByClass(RedisOutputDriver.class);
 
 		job.setMapperClass(RedisOutputMapper.class);

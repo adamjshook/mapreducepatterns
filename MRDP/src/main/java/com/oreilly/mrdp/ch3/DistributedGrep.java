@@ -38,7 +38,7 @@ public class DistributedGrep {
 		}
 		conf.set("mapregex", otherArgs[0]);
 
-		Job job = new Job(conf, "Distributed Grep");
+		Job job = Job.getInstance(conf, "Distributed Grep");
 		job.setJarByClass(DistributedGrep.class);
 		job.setMapperClass(GrepMapper.class);
 		job.setOutputKeyClass(NullWritable.class);

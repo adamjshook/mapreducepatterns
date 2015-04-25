@@ -7,13 +7,13 @@ import java.net.URI;
 import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Get;
-import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -32,13 +32,12 @@ public class QueryBloomFiltering {
 			Mapper<Object, Text, Text, NullWritable> {
 
 		private BloomFilter filter = new BloomFilter();
-		private HTable table = null;
+		private Table table = null;
 
 		@Override
 		protected void setup(Context context) throws IOException,
 				InterruptedException {
-			URI[] files = DistributedCache.getCacheFiles(context
-					.getConfiguration());
+			URI[] files = context.getCacheFiles();
 
 			// if the files in the distributed cache are set
 			if (files != null && files.length == 1) {
@@ -58,8 +57,8 @@ public class QueryBloomFiltering {
 			}
 
 			// Get HBase table of user info
-			Configuration hconf = HBaseConfiguration.create();
-			table = new HTable(hconf, "user_table");
+			table = ConnectionFactory.createConnection().getTable(
+					TableName.valueOf("user_table"));
 		}
 
 		@Override
@@ -104,7 +103,7 @@ public class QueryBloomFiltering {
 
 		FileSystem.get(conf).delete(new Path(otherArgs[2]), true);
 
-		Job job = new Job(conf, "StackOverflow Bloom Filtering");
+		Job job = Job.getInstance(conf, "StackOverflow Bloom Filtering");
 		job.setJarByClass(QueryBloomFiltering.class);
 		job.setMapperClass(BloomFilteringMapper.class);
 		job.setNumReduceTasks(0);
@@ -113,9 +112,8 @@ public class QueryBloomFiltering {
 		FileInputFormat.addInputPath(job, new Path(otherArgs[0]));
 		FileOutputFormat.setOutputPath(job, new Path(otherArgs[2]));
 
-		DistributedCache.addCacheFile(
-				FileSystem.get(conf).makeQualified(new Path(otherArgs[1]))
-						.toUri(), job.getConfiguration());
+		job.addCacheFile(FileSystem.get(conf)
+				.makeQualified(new Path(otherArgs[1])).toUri());
 
 		System.exit(job.waitForCompletion(true) ? 0 : 1);
 	}

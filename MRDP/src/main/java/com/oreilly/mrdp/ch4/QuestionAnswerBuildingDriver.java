@@ -205,7 +205,7 @@ public class QuestionAnswerBuildingDriver {
 			System.exit(1);
 		}
 
-		Job job = new Job(conf, "QuestionAnswerHierarchy");
+		Job job = Job.getInstance(conf, "QuestionAnswerHierarchy");
 		job.setJarByClass(QuestionAnswerBuildingDriver.class);
 
 		job.setMapperClass(PostCommentMapper.class);

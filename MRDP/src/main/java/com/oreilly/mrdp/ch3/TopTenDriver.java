@@ -94,7 +94,7 @@ public class TopTenDriver {
 			System.exit(2);
 		}
 
-		Job job = new Job(conf, "Top Ten Users by Reputation");
+		Job job = Job.getInstance(conf, "Top Ten Users by Reputation");
 		job.setJarByClass(TopTenDriver.class);
 		job.setMapperClass(SOTopTenMapper.class);
 		job.setReducerClass(SOTopTenReducer.class);

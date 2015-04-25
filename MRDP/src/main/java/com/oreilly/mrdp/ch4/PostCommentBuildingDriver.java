@@ -220,7 +220,7 @@ public class PostCommentBuildingDriver {
 			System.exit(1);
 		}
 
-		Job job = new Job(conf, "PostCommentHierarchy");
+		Job job = Job.getInstance(conf, "PostCommentHierarchy");
 		job.setJarByClass(PostCommentBuildingDriver.class);
 
 		MultipleInputs.addInputPath(job, new Path(otherArgs[0]),

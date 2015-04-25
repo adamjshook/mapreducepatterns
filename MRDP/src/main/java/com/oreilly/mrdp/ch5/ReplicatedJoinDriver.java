@@ -5,12 +5,12 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.URI;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.zip.GZIPInputStream;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -35,8 +35,7 @@ public class ReplicatedJoinDriver {
 		public void setup(Context context) throws IOException,
 				InterruptedException {
 			try {
-				Path[] files = DistributedCache.getLocalCacheFiles(context
-						.getConfiguration());
+				URI[] files = context.getCacheFiles();
 
 				if (files == null || files.length == 0) {
 					throw new RuntimeException(
@@ -44,7 +43,7 @@ public class ReplicatedJoinDriver {
 				}
 
 				// Read all files in the DistributedCache
-				for (Path p : files) {
+				for (URI p : files) {
 					BufferedReader rdr = new BufferedReader(
 							new InputStreamReader(
 									new GZIPInputStream(new FileInputStream(
@@ -64,6 +63,8 @@ public class ReplicatedJoinDriver {
 							userIdToInfo.put(userId, line);
 						}
 					}
+
+					rdr.close();
 				}
 
 			} catch (IOException e) {
@@ -120,7 +121,7 @@ public class ReplicatedJoinDriver {
 		}
 
 		// Configure the join type
-		Job job = new Job(conf, "Replicated Join");
+		Job job = Job.getInstance(conf, "Replicated Join");
 		job.getConfiguration().set("join.type", joinType);
 		job.setJarByClass(ReplicatedJoinDriver.class);
 
@@ -134,10 +135,7 @@ public class ReplicatedJoinDriver {
 		job.setOutputValueClass(Text.class);
 
 		// Configure the DistributedCache
-		DistributedCache.addCacheFile(new Path(otherArgs[0]).toUri(),
-				job.getConfiguration());
-
-		DistributedCache.setLocalFiles(job.getConfiguration(), otherArgs[0]);
+		job.addCacheFile(new Path(otherArgs[0]).toUri());
 
 		System.exit(job.waitForCompletion(true) ? 0 : 3);
 	}

@@ -84,7 +84,7 @@ public class CommentWordCount {
 			System.err.println("Usage: CommentWordCount <in> <out>");
 			System.exit(2);
 		}
-		Job job = new Job(conf, "StackOverflow Comment Word Count");
+		Job job = Job.getInstance(conf, "StackOverflow Comment Word Count");
 		job.setJarByClass(CommentWordCount.class);
 		job.setMapperClass(SOWordCountMapper.class);
 		job.setCombinerClass(IntSumReducer.class);

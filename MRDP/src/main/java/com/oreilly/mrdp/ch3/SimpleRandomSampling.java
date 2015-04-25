@@ -51,7 +51,7 @@ public class SimpleRandomSampling {
 		}
 		conf.set("filter_percentage", otherArgs[0]);
 
-		Job job = new Job(conf, "SRS");
+		Job job = Job.getInstance(conf, "SRS");
 		job.setJarByClass(SimpleRandomSampling.class);
 		job.setMapperClass(SRSMapper.class);
 		job.setOutputKeyClass(NullWritable.class);

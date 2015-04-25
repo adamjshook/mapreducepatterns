@@ -126,7 +126,7 @@ public class PartitionedUsers {
 			System.exit(2);
 		}
 
-		Job job = new Job(conf, "PartitionedUsers");
+		Job job = Job.getInstance(conf, "PartitionedUsers");
 
 		job.setJarByClass(PartitionedUsers.class);
 
