@@ -2,6 +2,5 @@
 **/.classpath
 **/.project
 **/.settings
+**/dependency-reduced-pom.xml
 
-# Package Files #
-*.jar
