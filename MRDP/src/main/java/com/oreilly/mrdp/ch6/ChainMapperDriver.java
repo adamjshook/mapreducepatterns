@@ -5,244 +5,232 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.URI;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
 
-import org.apache.hadoop.filecache.DistributedCache;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.MapReduceBase;
-import org.apache.hadoop.mapred.Mapper;
-import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.Reducer;
-import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.RunningJob;
-import org.apache.hadoop.mapred.TextInputFormat;
-import org.apache.hadoop.mapred.TextOutputFormat;
-import org.apache.hadoop.mapred.lib.ChainMapper;
-import org.apache.hadoop.mapred.lib.ChainReducer;
-import org.apache.hadoop.mapred.lib.MultipleOutputs;
-import org.apache.hadoop.mapred.lib.NullOutputFormat;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.chain.ChainMapper;
+import org.apache.hadoop.mapreduce.lib.chain.ChainReducer;
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
+import org.apache.hadoop.mapreduce.lib.output.NullOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
 
 import com.oreilly.mrdp.utils.MRDPUtils;
 
 public class ChainMapperDriver {
 
-	public static final String AVERAGE_CALC_GROUP = "AverageCalculation";
-	public static final String MULTIPLE_OUTPUTS_BELOW_5000 = "below5000";
-	public static final String MULTIPLE_OUTPUTS_ABOVE_5000 = "above5000";
+    public static final String AVERAGE_CALC_GROUP = "AverageCalculation";
+    public static final String MULTIPLE_OUTPUTS_BELOW_5000 = "below5000";
+    public static final String MULTIPLE_OUTPUTS_ABOVE_5000 = "above5000";
 
-	public static class UserIdCountMapper extends MapReduceBase implements
-			Mapper<Object, Text, Text, LongWritable> {
+    public static class UserIdCountMapper extends
+            Mapper<Object, Text, Text, LongWritable> {
 
-		public static final String RECORDS_COUNTER_NAME = "Records";
+        public static final String RECORDS_COUNTER_NAME = "Records";
 
-		private static final LongWritable ONE = new LongWritable(1);
-		private Text outkey = new Text();
+        private static final LongWritable ONE = new LongWritable(1);
+        private Text outkey = new Text();
 
-		@Override
-		public void map(Object key, Text value,
-				OutputCollector<Text, LongWritable> output, Reporter reporter)
-				throws IOException {
+        @Override
+        protected void map(Object key, Text value, Context context)
+                throws InterruptedException, IOException {
 
-			// Parse the input into a nice map.
-			Map<String, String> parsed = MRDPUtils.transformXmlToMap(value
-					.toString());
+            // Parse the input into a nice map.
+            Map<String, String> parsed = MRDPUtils.transformXmlToMap(value
+                    .toString());
 
-			// Get the value for the OwnerUserId attribute
-			String userId = parsed.get("OwnerUserId");
+            // Get the value for the OwnerUserId attribute
+            String userId = parsed.get("OwnerUserId");
 
-			if (userId != null) {
-				outkey.set(userId);
-				output.collect(outkey, ONE);
-			}
-		}
-	}
+            if (userId != null) {
+                outkey.set(userId);
+                context.write(outkey, ONE);
+            }
+        }
+    }
 
-	public static class UserIdReputationEnrichmentMapper extends MapReduceBase
-			implements Mapper<Text, LongWritable, Text, LongWritable> {
+    public static class UserIdReputationEnrichmentMapper extends
+            Mapper<Text, LongWritable, Text, LongWritable> {
 
-		private Text outkey = new Text();
-		private HashMap<String, String> userIdToReputation = new HashMap<String, String>();
+        private Text outkey = new Text();
+        private HashMap<String, String> userIdToReputation = new HashMap<String, String>();
 
-		@Override
-		public void configure(JobConf job) {
-			try {
-				userIdToReputation.clear();
-				Path[] files = DistributedCache.getLocalCacheFiles(job);
+        @Override
+        protected void setup(Context context) {
+            try {
+                userIdToReputation.clear();
+                URI[] files = context.getCacheFiles();
 
-				if (files == null || files.length == 0) {
-					throw new RuntimeException(
-							"User information is not set in DistributedCache");
-				}
+                if (files == null || files.length == 0) {
+                    throw new RuntimeException(
+                            "User information is not set in DistributedCache");
+                }
 
-				// Read all files in the DistributedCache
-				for (Path p : files) {
-					BufferedReader rdr = new BufferedReader(
-							new InputStreamReader(
-									new GZIPInputStream(new FileInputStream(
-											new File(p.toString())))));
+                // Read all files in the DistributedCache
+                for (URI p : files) {
+                    BufferedReader rdr = new BufferedReader(
+                            new InputStreamReader(
+                                    new GZIPInputStream(new FileInputStream(
+                                            new File(p.toString())))));
 
-					String line;
-					// For each record in the user file
-					while ((line = rdr.readLine()) != null) {
+                    String line;
+                    // For each record in the user file
+                    while ((line = rdr.readLine()) != null) {
 
-						// Get the user ID and reputation
-						Map<String, String> parsed = MRDPUtils
-								.transformXmlToMap(line);
-						String userId = parsed.get("Id");
-						String reputation = parsed.get("Reputation");
+                        // Get the user ID and reputation
+                        Map<String, String> parsed = MRDPUtils
+                                .transformXmlToMap(line);
+                        String userId = parsed.get("Id");
+                        String reputation = parsed.get("Reputation");
 
-						if (userId != null && reputation != null) {
-							// Map the user ID to the reputation
-							userIdToReputation.put(userId, reputation);
-						}
-					}
-				}
+                        if (userId != null && reputation != null) {
+                            // Map the user ID to the reputation
+                            userIdToReputation.put(userId, reputation);
+                        }
+                    }
 
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-			}
-		}
+                    rdr.close();
+                }
 
-		@Override
-		public void map(Text key, LongWritable value,
-				OutputCollector<Text, LongWritable> output, Reporter reporter)
-				throws IOException {
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
 
-			String reputation = userIdToReputation.get(key.toString());
-			if (reputation != null) {
-				outkey.set(value.get() + "\t" + reputation);
-				output.collect(outkey, value);
-			}
-		}
-	}
+        @Override
+        protected void map(Text key, LongWritable value, Context context)
+                throws InterruptedException, IOException {
 
-	public static class LongSumReducer extends MapReduceBase implements
-			Reducer<Text, LongWritable, Text, LongWritable> {
+            String reputation = userIdToReputation.get(key.toString());
+            if (reputation != null) {
+                outkey.set(value.get() + "\t" + reputation);
+                context.write(outkey, value);
+            }
+        }
+    }
 
-		private LongWritable outvalue = new LongWritable();
+    public static class LongSumReducer extends
+            Reducer<Text, LongWritable, Text, LongWritable> {
 
-		@Override
-		public void reduce(Text key, Iterator<LongWritable> values,
-				OutputCollector<Text, LongWritable> output, Reporter reporter)
-				throws IOException {
+        private LongWritable outvalue = new LongWritable();
 
-			int sum = 0;
-			while (values.hasNext()) {
-				sum += values.next().get();
-			}
-			outvalue.set(sum);
-			output.collect(key, outvalue);
-		}
-	}
+        @Override
+        protected void reduce(Text key, Iterable<LongWritable> values,
+                Context context) throws InterruptedException, IOException {
 
-	public static class UserIdBinningMapper extends MapReduceBase implements
-			Mapper<Text, LongWritable, Text, LongWritable> {
+            int sum = 0;
+            for (LongWritable value : values) {
+                sum += value.get();
+            }
 
-		private MultipleOutputs mos = null;
+            outvalue.set(sum);
+            context.write(key, outvalue);
+        }
+    }
 
-		@Override
-		public void configure(JobConf conf) {
-			mos = new MultipleOutputs(conf);
-		}
+    public static class UserIdBinningMapper extends
+            Mapper<Text, LongWritable, Text, LongWritable> {
 
-		@SuppressWarnings("unchecked")
-		@Override
-		public void map(Text key, LongWritable value,
-				OutputCollector<Text, LongWritable> output, Reporter reporter)
-				throws IOException {
+        private MultipleOutputs<Text, LongWritable> mos = null;
 
-			if (Integer.parseInt(key.toString().split("\t")[1]) < 5000) {
-				mos.getCollector(MULTIPLE_OUTPUTS_BELOW_5000, reporter)
-						.collect(key, value);
-			} else {
-				mos.getCollector(MULTIPLE_OUTPUTS_ABOVE_5000, reporter)
-						.collect(key, value);
-			}
-		}
+        @Override
+        protected void setup(Context context) {
+            mos = new MultipleOutputs<Text, LongWritable>(context);
+        }
 
-		@Override
-		public void close() {
-			try {
-				mos.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-	}
+        @Override
+        protected void map(Text key, LongWritable value, Context context)
+                throws InterruptedException, IOException {
 
-	public static void main(String[] args) throws Exception {
-		JobConf conf = new JobConf("ChainMapperReducer");
-		String[] otherArgs = new GenericOptionsParser(conf, args)
-				.getRemainingArgs();
+            if (Integer.parseInt(key.toString().split("\t")[1]) < 5000) {
+                mos.write(MULTIPLE_OUTPUTS_BELOW_5000, key, value);
+            } else {
+                mos.write(MULTIPLE_OUTPUTS_ABOVE_5000, key, value);
+            }
+        }
 
-		if (otherArgs.length != 3) {
-			System.err
-					.println("Usage: ChainMapperReducer <posts> <users> <out>");
-			System.exit(2);
-		}
+        @Override
+        protected void cleanup(Context context) throws InterruptedException,
+                IOException {
+            mos.close();
+        }
+    }
 
-		Path postInput = new Path(otherArgs[0]);
-		Path userInput = new Path(otherArgs[1]);
-		Path outputDir = new Path(otherArgs[2]);
+    public static void main(String[] args) throws Exception {
+        Configuration conf = new Configuration();
+        String[] otherArgs = new GenericOptionsParser(conf, args)
+                .getRemainingArgs();
 
-		// Setup first job to counter user posts
-		conf.setJarByClass(ChainMapperDriver.class);
+        if (otherArgs.length != 3) {
+            System.err
+                    .println("Usage: ChainMapperReducer <posts> <users> <out>");
+            System.exit(2);
+        }
 
-		ChainMapper.addMapper(conf, UserIdCountMapper.class,
-				LongWritable.class, Text.class, Text.class, LongWritable.class,
-				false, new JobConf(false));
+        Job job = Job.getInstance(conf, "ChainMapperReducer");
 
-		ChainMapper.addMapper(conf, UserIdReputationEnrichmentMapper.class,
-				Text.class, LongWritable.class, Text.class, LongWritable.class,
-				false, new JobConf(false));
+        Path postInput = new Path(otherArgs[0]);
+        Path userInput = new Path(otherArgs[1]);
+        Path outputDir = new Path(otherArgs[2]);
 
-		ChainReducer.setReducer(conf, LongSumReducer.class, Text.class,
-				LongWritable.class, Text.class, LongWritable.class, false,
-				new JobConf(false));
+        // Setup first job to counter user posts
+        job.setJarByClass(ChainMapperDriver.class);
 
-		ChainReducer.addMapper(conf, UserIdBinningMapper.class, Text.class,
-				LongWritable.class, Text.class, LongWritable.class, false,
-				new JobConf(false));
+        ChainMapper
+                .addMapper(job, UserIdCountMapper.class, LongWritable.class,
+                        Text.class, Text.class, LongWritable.class,
+                        new Configuration());
 
-		conf.setCombinerClass(LongSumReducer.class);
+        ChainMapper.addMapper(job, UserIdReputationEnrichmentMapper.class,
+                Text.class, LongWritable.class, Text.class, LongWritable.class,
+                new Configuration());
 
-		conf.setInputFormat(TextInputFormat.class);
-		TextInputFormat.setInputPaths(conf, postInput);
+        ChainReducer.setReducer(job, LongSumReducer.class, Text.class,
+                LongWritable.class, Text.class, LongWritable.class,
+                new Configuration());
 
-		// Configure multiple outputs
-		conf.setOutputFormat(NullOutputFormat.class);
-		FileOutputFormat.setOutputPath(conf, outputDir);
-		MultipleOutputs.addNamedOutput(conf, MULTIPLE_OUTPUTS_ABOVE_5000,
-				TextOutputFormat.class, Text.class, LongWritable.class);
-		MultipleOutputs.addNamedOutput(conf, MULTIPLE_OUTPUTS_BELOW_5000,
-				TextOutputFormat.class, Text.class, LongWritable.class);
+        ChainReducer.addMapper(job, UserIdBinningMapper.class, Text.class,
+                LongWritable.class, Text.class, LongWritable.class,
+                new Configuration());
 
-		conf.setOutputKeyClass(Text.class);
-		conf.setOutputValueClass(LongWritable.class);
+        job.setCombinerClass(LongSumReducer.class);
 
-		// Add the user files to the DistributedCache
-		FileStatus[] userFiles = FileSystem.get(conf).listStatus(userInput);
-		for (FileStatus status : userFiles) {
-			DistributedCache.addCacheFile(status.getPath().toUri(), conf);
-		}
+        job.setInputFormatClass(TextInputFormat.class);
+        TextInputFormat.setInputPaths(job, postInput);
 
-		RunningJob job = JobClient.runJob(conf);
+        // Configure multiple outputs
+        job.setOutputFormatClass(NullOutputFormat.class);
 
-		while (!job.isComplete()) {
-			Thread.sleep(5000);
-		}
+        FileOutputFormat.setOutputPath(job, outputDir);
 
-		System.exit(job.isSuccessful() ? 0 : 1);
-	}
+        MultipleOutputs.addNamedOutput(job, MULTIPLE_OUTPUTS_ABOVE_5000,
+                TextOutputFormat.class, Text.class, LongWritable.class);
+
+        MultipleOutputs.addNamedOutput(job, MULTIPLE_OUTPUTS_BELOW_5000,
+                TextOutputFormat.class, Text.class, LongWritable.class);
+
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(LongWritable.class);
+
+        // Add the user files to the DistributedCache
+        FileStatus[] userFiles = FileSystem.get(conf).listStatus(userInput);
+        for (FileStatus status : userFiles) {
+            job.addCacheFile(status.getPath().toUri());
+        }
+
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
+    }
 }
