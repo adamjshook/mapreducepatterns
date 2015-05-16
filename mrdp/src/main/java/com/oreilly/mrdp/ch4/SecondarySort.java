@@ -1,149 +1,394 @@
 package com.oreilly.mrdp.ch4;
 
+import java.io.DataInput;
+import java.io.DataOutput;
 import java.io.IOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.Writable;
+import org.apache.hadoop.io.WritableComparable;
+import org.apache.hadoop.io.WritableComparator;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
-import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
-import org.apache.hadoop.mapreduce.lib.partition.InputSampler;
-import org.apache.hadoop.mapreduce.lib.partition.TotalOrderPartitioner;
-import org.apache.hadoop.util.GenericOptionsParser;
+import org.apache.hadoop.util.Tool;
+import org.apache.hadoop.util.ToolRunner;
 
 import com.oreilly.mrdp.utils.MRDPUtils;
 
-public class SecondarySort {
+public class SecondarySort extends Configured implements Tool {
 
-    public static class LastAccessDateMapper extends
-            Mapper<Object, Text, Text, Text> {
+	public static class UserDateWritable implements
+			WritableComparable<UserDateWritable> {
 
-        private Text outkey = new Text();
+		private Text user = new Text();
+		private Date date = new Date();
 
-        @Override
-        public void map(Object key, Text value, Context context)
-                throws IOException, InterruptedException {
+		public Text getUser() {
+			return user;
+		}
 
-            // Parse the input string into a nice map
-            Map<String, String> parsed = MRDPUtils.transformXmlToMap(value
-                    .toString());
+		public void setUser(Text text) {
+			this.user.set(text);
+		}
 
-            String date = parsed.get("LastAccessDate");
-            if (date != null) {
-                outkey.set(date);
-                context.write(outkey, value);
-            }
-        }
-    }
+		public Date getDate() {
+			return date;
+		}
 
-    public static class ValueReducer extends
-            Reducer<Text, Text, Text, NullWritable> {
+		public void setDate(Date date) {
+			this.date.setTime(date.getTime());
+		}
 
-        @Override
-        public void reduce(Text key, Iterable<Text> values, Context context)
-                throws IOException, InterruptedException {
-            for (Text t : values) {
-                context.write(t, NullWritable.get());
-            }
-        }
-    }
+		@Override
+		public void readFields(DataInput in) throws IOException {
+			user.readFields(in);
+			date.setTime(in.readLong());
+		}
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    public static void main(String[] args) throws Exception {
-        Configuration conf = new Configuration();
-        String[] otherArgs = new GenericOptionsParser(conf, args)
-                .getRemainingArgs();
-        if (otherArgs.length != 3) {
-            System.err
-                    .println("Usage: TotalOrderSorting <user data> <out> <sample rate>");
-            System.exit(1);
-        }
+		@Override
+		public void write(DataOutput out) throws IOException {
+			user.write(out);
+			out.writeLong(date.getTime());
+		}
 
-        Path inputPath = new Path(otherArgs[0]);
-        Path partitionFile = new Path(otherArgs[1] + "_partitions.lst");
-        Path outputStage = new Path(otherArgs[1] + "_staging");
-        Path outputOrder = new Path(otherArgs[1]);
-        double sampleRate = Double.parseDouble(otherArgs[2]);
+		@Override
+		public int compareTo(UserDateWritable o) {
+			int c = this.getUser().compareTo(o.getUser());
 
-        FileSystem.get(new Configuration()).delete(outputOrder, true);
-        FileSystem.get(new Configuration()).delete(outputStage, true);
-        FileSystem.get(new Configuration()).delete(partitionFile, true);
+			if (c == 0) {
+				c = this.getDate().compareTo(o.getDate());
+			}
 
-        // Configure job to prepare for sampling
-        Job sampleJob = Job.getInstance(conf, "TotalOrderSortingStage");
-        sampleJob.setJarByClass(SecondarySort.class);
+			return c;
+		}
+	}
 
-        // Use the mapper implementation with zero reduce tasks
-        sampleJob.setMapperClass(LastAccessDateMapper.class);
-        sampleJob.setNumReduceTasks(0);
+	public static class IdDateWritable implements Writable {
 
-        sampleJob.setOutputKeyClass(Text.class);
-        sampleJob.setOutputValueClass(Text.class);
+		public long id = 0;
+		public Date date = new Date();
 
-        TextInputFormat.setInputPaths(sampleJob, inputPath);
+		public long getId() {
+			return id;
+		}
 
-        // Set the output format to a sequence file
-        sampleJob.setOutputFormatClass(SequenceFileOutputFormat.class);
-        SequenceFileOutputFormat.setOutputPath(sampleJob, outputStage);
+		public void setId(long id) {
+			this.id = id;
+		}
 
-        // Submit the job and get completion code.
-        int code = sampleJob.waitForCompletion(true) ? 0 : 1;
+		public Date getDate() {
+			return date;
+		}
 
-        if (code == 0) {
-            Job orderJob = Job.getInstance(conf, "TotalOrderSortingStage");
-            orderJob.setJarByClass(SecondarySort.class);
+		public void setDate(Date date) {
+			this.date.setTime(date.getTime());
+		}
 
-            // Here, use the identity mapper to output the key/value pairs in
-            // the SequenceFile
-            orderJob.setMapperClass(Mapper.class);
-            orderJob.setReducerClass(ValueReducer.class);
+		@Override
+		public void readFields(DataInput in) throws IOException {
+			id = in.readLong();
+			date.setTime(in.readLong());
+		}
 
-            // Set the number of reduce tasks to an appropriate number for the
-            // amount of data being sorted
-            orderJob.setNumReduceTasks(10);
+		@Override
+		public void write(DataOutput out) throws IOException {
+			out.writeLong(id);
+			out.writeLong(date.getTime());
+		}
+	}
 
-            // Use Hadoop's TotalOrderPartitioner class
-            orderJob.setPartitionerClass(TotalOrderPartitioner.class);
+	public static class SessionWritable implements
+			WritableComparable<SessionWritable> {
 
-            // Set the partition file
-            TotalOrderPartitioner.setPartitionFile(orderJob.getConfiguration(),
-                    partitionFile);
+		private String user = new String();
+		private long sessionId = 0;
+		private List<Long> posts = new ArrayList<Long>();
+		private Date start = new Date();
+		private Date end = new Date();
 
-            orderJob.setOutputKeyClass(Text.class);
-            orderJob.setOutputValueClass(Text.class);
+		public String getUser() {
+			return user;
+		}
 
-            // Set the input to the previous job's output
-            orderJob.setInputFormatClass(SequenceFileInputFormat.class);
-            SequenceFileInputFormat.setInputPaths(orderJob, outputStage);
+		public void setUser(String user) {
+			this.user = user;
+		}
 
-            // Set the output path to the command line parameter
-            TextOutputFormat.setOutputPath(orderJob, outputOrder);
+		public long getSessionId() {
+			return sessionId;
+		}
 
-            // Set the separator to an empty string
-            orderJob.getConfiguration().set(
-                    "mapred.textoutputformat.separator", "");
+		public void setSessionId(long sessionId) {
+			this.sessionId = sessionId;
+		}
 
-            // Use the InputSampler to go through the output of the previous
-            // job, sample it, and create the partition file
-            InputSampler.writePartitionFile(orderJob,
-                    new InputSampler.RandomSampler(sampleRate, 10000));
+		public List<Long> getPosts() {
+			return posts;
+		}
 
-            // Submit the job
-            code = orderJob.waitForCompletion(true) ? 0 : 2;
-        }
+		public void addPost(long id) {
+			this.posts.add(id);
+		}
 
-        // Cleanup the partition file and the staging directory
-        FileSystem.get(new Configuration()).delete(partitionFile, false);
-        FileSystem.get(new Configuration()).delete(outputStage, true);
+		public void setPosts(List<Long> posts) {
+			this.posts = posts;
+		}
 
-        System.exit(code);
-    }
+		public Date getStart() {
+			return start;
+		}
+
+		public void setStart(Date start) {
+			this.start.setTime(start.getTime());
+		}
+
+		public Date getEnd() {
+			return end;
+		}
+
+		public void setEnd(Date end) {
+			this.end.setTime(end.getTime());
+		}
+
+		public int getNumPosts() {
+			return this.posts.size();
+		}
+
+		@Override
+		public void readFields(DataInput in) throws IOException {
+			user = in.readUTF();
+			sessionId = in.readLong();
+
+			int numPosts = in.readInt();
+
+			posts.clear();
+			for (int i = 0; i < numPosts; ++i) {
+				posts.add(in.readLong());
+			}
+
+			start.setTime(in.readLong());
+			end.setTime(in.readLong());
+		}
+
+		@Override
+		public void write(DataOutput out) throws IOException {
+			out.writeUTF(user);
+			out.writeLong(sessionId);
+			out.writeInt(posts.size());
+
+			for (Long p : posts) {
+				out.writeLong(p);
+			}
+
+			out.writeLong(start.getTime());
+			out.writeLong(end.getTime());
+		}
+
+		@Override
+		public int compareTo(SessionWritable o) {
+			return Long.compare(sessionId, o.sessionId);
+		}
+
+		@Override
+		public int hashCode() {
+			return Long.valueOf(sessionId).hashCode();
+		}
+
+		public String toString() {
+			return user + "\t" + sessionId + "\t" + (start.getTime() / 1000)
+					+ "\t" + (end.getTime() / 1000) + "\t" + this.posts.size()
+					+ "\t" + StringUtils.join(this.posts, ",");
+		}
+	}
+
+	public static class UserDateMapper extends
+			Mapper<LongWritable, Text, UserDateWritable, IdDateWritable> {
+
+		// This object will format the creation date string into a Date object
+		private final static SimpleDateFormat frmt = new SimpleDateFormat(
+				"yyyy-MM-dd'T'HH:mm:ss.SSS");
+
+		private UserDateWritable outkey = new UserDateWritable();
+		private IdDateWritable outvalue = new IdDateWritable();
+
+		@Override
+		public void map(LongWritable key, Text value, Context context)
+				throws IOException, InterruptedException {
+
+			// Parse the input string into a nice map
+			Map<String, String> parsed = MRDPUtils.transformXmlToMap(value
+					.toString());
+
+			String postId = parsed.get("Id");
+			String userId = parsed.get("OwnerUserId");
+			String date = parsed.get("CreationDate");
+
+			// make sure all fields are set and the user ID is not -1
+			// (undefined)
+			if (postId != null && userId != null && userId != "-1"
+					&& date != null) {
+				outkey.getUser().set(userId);
+				outvalue.setId(Long.parseLong(postId));
+
+				try {
+					Date d = frmt.parse(date);
+					outkey.setDate(d);
+					outvalue.setDate(d);
+				} catch (ParseException e) {
+					context.getCounter("Exceptions", "Date ParseException")
+							.increment(1);
+					return;
+				}
+
+				context.write(outkey, outvalue);
+			}
+		}
+	}
+
+	public static class SessionBuilderReducer
+			extends
+			Reducer<UserDateWritable, IdDateWritable, SessionWritable, NullWritable> {
+
+		private SessionWritable outkey = new SessionWritable();
+
+		@Override
+		public void reduce(UserDateWritable key,
+				Iterable<IdDateWritable> values, Context context)
+				throws IOException, InterruptedException {
+
+			long sessionId = 0;
+
+			// Set our output key to the user ID
+			outkey.setUser(key.getUser().toString());
+
+			Date previous = null;
+
+			for (IdDateWritable t : values) {
+				if (previous == null) {
+					// set our initial date and the ID
+					previous = new Date(t.getDate().getTime());
+
+					outkey.setSessionId(sessionId++);
+					outkey.setStart(t.getDate());
+					outkey.setEnd(t.getDate());
+					outkey.getPosts().clear();
+					outkey.addPost(t.getId());
+				} else {
+					// compare last time to this time
+					if (t.getDate().getTime() - previous.getTime() < (30 * 60 * 1000)) {
+						outkey.addPost(t.getId());
+
+						// just keep pushing back the end of this session
+						outkey.setEnd(t.getDate());
+					} else {
+						// then we will consider this new time the beginning of
+						// a new session
+
+						// output this session
+						context.write(outkey, NullWritable.get());
+
+						// reset our session
+						outkey.setSessionId(sessionId++);
+						outkey.setStart(t.getDate());
+						outkey.setEnd(t.getDate());
+						outkey.getPosts().clear();
+						outkey.addPost(t.getId());
+					}
+
+					// set the previous time to current
+					previous.setTime(t.getDate().getTime());
+				}
+			}
+
+			// output final session
+			context.write(outkey, NullWritable.get());
+		}
+
+	}
+
+	public static class UserPartitioner extends
+			Partitioner<UserDateWritable, Object> {
+		@Override
+		public int getPartition(UserDateWritable key, Object value,
+				int numPartitions) {
+			return key.getUser().hashCode() % numPartitions;
+		}
+	}
+
+	public static class UserDateGroupComparator extends WritableComparator {
+
+		public UserDateGroupComparator() {
+			super(UserDateWritable.class, true);
+		}
+
+		@Override
+		public int compare(Object a, Object b) {
+			UserDateWritable k1 = (UserDateWritable) a;
+			UserDateWritable k2 = (UserDateWritable) b;
+			return k1.getUser().compareTo(k2.getUser());
+		}
+
+		@SuppressWarnings("rawtypes")
+		@Override
+		public int compare(WritableComparable a, WritableComparable b) {
+			UserDateWritable k1 = (UserDateWritable) a;
+			UserDateWritable k2 = (UserDateWritable) b;
+			return k1.getUser().compareTo(k2.getUser());
+		}
+	}
+
+	@Override
+	public int run(String[] args) throws Exception {
+		if (args.length != 2) {
+			System.err.println("Usage: SecondarySort <posts> <out>");
+			return 1;
+		}
+
+		Path input = new Path(args[0]);
+		Path output = new Path(args[1]);
+
+		// Configure job to prepare for sampling
+		Job job = Job.getInstance(getConf(), "SecondarySort");
+		job.setJarByClass(SecondarySort.class);
+
+		// Use the mapper implementation with zero reduce tasks
+		job.setMapperClass(UserDateMapper.class);
+		job.setReducerClass(SessionBuilderReducer.class);
+
+		job.setOutputKeyClass(UserDateWritable.class);
+		job.setOutputValueClass(IdDateWritable.class);
+
+		TextInputFormat.setInputPaths(job, input);
+
+		// Set the output format to a text file
+		job.setOutputFormatClass(TextOutputFormat.class);
+		TextOutputFormat.setOutputPath(job, output);
+
+		job.setPartitionerClass(UserPartitioner.class);
+		job.setGroupingComparatorClass(UserDateGroupComparator.class);
+
+		// Submit the job and exit
+		return job.waitForCompletion(true) ? 0 : 1;
+	}
+
+	public static void main(String[] args) throws Exception {
+		System.exit(ToolRunner.run(new Configuration(), new SecondarySort(),
+				args));
+	}
 }

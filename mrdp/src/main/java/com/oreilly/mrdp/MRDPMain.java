@@ -37,6 +37,8 @@ public class MRDPMain extends Configured implements Tool {
 				RedisInputDriver.main(otherArgs);
 			} else if (example.equalsIgnoreCase("RedisOutput")) {
 				RedisOutputDriver.main(otherArgs);
+			} else if (example.equalsIgnoreCase("SecondarySort")) {
+				SecondarySort.main(otherArgs);
 			} else {
 				printHelp();
 				return 1;
@@ -53,6 +55,8 @@ public class MRDPMain extends Configured implements Tool {
 		System.out
 				.println("Usage: hadoop jar mrdp.jar <example> <example args>");
 		System.out.println("Examples are:");
+		System.out.println("Chapter 4:");
+		System.out.println("\tSecondarySort Posts.xml <output>");
 		System.out.println("Chapter 7:");
 		System.out
 				.println("\tRedisOutput  <user data> <redis hosts> <hashset name>");

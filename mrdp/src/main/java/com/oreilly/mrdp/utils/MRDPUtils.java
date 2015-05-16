@@ -22,7 +22,7 @@ public class MRDPUtils {
 				map.put(key.substring(0, key.length() - 1), val);
 			}
 		} catch (StringIndexOutOfBoundsException e) {
-			System.err.println(xml);
+			// dump error
 		}
 
 		return map;
