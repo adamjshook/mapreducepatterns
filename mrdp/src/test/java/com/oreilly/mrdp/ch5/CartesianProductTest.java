@@ -1,4 +1,4 @@
-package mrdp.ch5;
+package com.oreilly.mrdp.ch5;
 
 import java.io.File;
 import java.io.IOException;
