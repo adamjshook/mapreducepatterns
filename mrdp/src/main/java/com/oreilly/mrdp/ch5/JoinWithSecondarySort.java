@@ -163,7 +163,7 @@ public class JoinWithSecondarySort extends Configured implements Tool {
 
     public enum JoinType {
       INNER, LEFTOUTER, RIGHTOUTER, FULLOUTER, ANTI;
-    
+
       public static JoinType fromString(String type) {
         if (type == null) {
           throw new InvalidParameterException(
@@ -299,7 +299,7 @@ public class JoinWithSecondarySort extends Configured implements Tool {
 
     // validate the join type. throws an exception if not a valid string
     UserJoinReducer.JoinType.fromString(joinType);
-    
+
     Job job = Job.getInstance(getConf(), "Join with Secondary Sort");
 
     // Configure the join type

@@ -28,93 +28,92 @@ import com.oreilly.mrdp.utils.MRDPUtils;
 
 public class QueryBloomFiltering {
 
-	public static class BloomFilteringMapper extends
-			Mapper<Object, Text, Text, NullWritable> {
+  public static class BloomFilteringMapper extends
+      Mapper<Object, Text, Text, NullWritable> {
 
-		private BloomFilter filter = new BloomFilter();
-		private Table table = null;
+    private BloomFilter filter = new BloomFilter();
+    private Table table = null;
 
-		@Override
-		protected void setup(Context context) throws IOException,
-				InterruptedException {
-			URI[] files = context.getCacheFiles();
+    @Override
+    protected void setup(Context context) throws IOException,
+        InterruptedException {
+      URI[] files = context.getCacheFiles();
 
-			// if the files in the distributed cache are set
-			if (files != null && files.length == 1) {
-				System.out.println("Reading Bloom filter from: "
-						+ files[0].getPath());
+      // if the files in the distributed cache are set
+      if (files != null && files.length == 1) {
+        System.out.println("Reading Bloom filter from: " + files[0].getPath());
 
-				// Open local file for read.
-				DataInputStream strm = new DataInputStream(new FileInputStream(
-						files[0].getPath()));
+        // Open local file for read.
+        DataInputStream strm = new DataInputStream(new FileInputStream(
+            files[0].getPath()));
 
-				// Read into our Bloom filter.
-				filter.readFields(strm);
-				strm.close();
-			} else {
-				throw new IOException(
-						"Bloom filter file not set in the DistributedCache.");
-			}
+        // Read into our Bloom filter.
+        filter.readFields(strm);
+        strm.close();
+      } else {
+        throw new IOException(
+            "Bloom filter file not set in the DistributedCache.");
+      }
 
-			// Get HBase table of user info
-			table = ConnectionFactory.createConnection().getTable(
-					TableName.valueOf("user_table"));
-		}
+      // Get HBase table of user info
+      table = ConnectionFactory.createConnection().getTable(
+          TableName.valueOf("user_table"));
+    }
 
-		@Override
-		public void map(Object key, Text value, Context context)
-				throws IOException, InterruptedException {
+    @Override
+    public void map(Object key, Text value, Context context)
+        throws IOException, InterruptedException {
 
-			// Parse the input into a nice map.
-			Map<String, String> parsed = MRDPUtils.transformXmlToMap(value
-					.toString());
+      // Parse the input into a nice map.
+      Map<String, String> parsed = MRDPUtils
+          .transformXmlToMap(value.toString());
 
-			// Get the value for the comment
-			String userid = parsed.get("UserId");
+      // Get the value for the comment
+      String userid = parsed.get("UserId");
 
-			// If it is null, skip this record
-			if (userid == null) {
-				return;
-			}
+      // If it is null, skip this record
+      if (userid == null) {
+        return;
+      }
 
-			// If this user ID is in the set
-			if (filter.membershipTest(new Key(userid.getBytes()))) {
-				// Get the reputation from the HBase table
-				Result r = table.get(new Get(userid.getBytes()));
-				int reputation = Integer.parseInt(new String(r.getValue(
-						"attr".getBytes(), "Reputation".getBytes())));
-				// If the reputation is at least 1,500,
-				// write the record to the file system
-				if (reputation >= 1500) {
-					context.write(value, NullWritable.get());
-				}
-			}
-		}
-	}
+      // If this user ID is in the set
+      if (filter.membershipTest(new Key(userid.getBytes()))) {
+        // Get the reputation from the HBase table
+        Result r = table.get(new Get(userid.getBytes()));
+        int reputation = Integer.parseInt(new String(r.getValue(
+            "attr".getBytes(), "Reputation".getBytes())));
+        // If the reputation is at least 1,500,
+        // write the record to the file system
+        if (reputation >= 1500) {
+          context.write(value, NullWritable.get());
+        }
+      }
+    }
+  }
 
-	public static void main(String[] args) throws Exception {
-		Configuration conf = new Configuration();
-		String[] otherArgs = new GenericOptionsParser(conf, args)
-				.getRemainingArgs();
-		if (otherArgs.length != 3) {
-			System.err.println("Usage: BloomFiltering <in> <cachefile> <out>");
-			System.exit(1);
-		}
+  public static void main(String[] args) throws Exception {
+    Configuration conf = new Configuration();
+    String[] otherArgs = new GenericOptionsParser(conf, args)
+        .getRemainingArgs();
+    if (otherArgs.length != 3) {
+      System.err.println("Usage: BloomFiltering <in> <cachefile> <out>");
+      System.exit(1);
+    }
 
-		FileSystem.get(conf).delete(new Path(otherArgs[2]), true);
+    FileSystem.get(conf).delete(new Path(otherArgs[2]), true);
 
-		Job job = Job.getInstance(conf, "StackOverflow Bloom Filtering");
-		job.setJarByClass(QueryBloomFiltering.class);
-		job.setMapperClass(BloomFilteringMapper.class);
-		job.setNumReduceTasks(0);
-		job.setOutputKeyClass(Text.class);
-		job.setOutputValueClass(NullWritable.class);
-		FileInputFormat.addInputPath(job, new Path(otherArgs[0]));
-		FileOutputFormat.setOutputPath(job, new Path(otherArgs[2]));
+    Job job = Job.getInstance(conf, "StackOverflow Bloom Filtering");
+    job.setJarByClass(QueryBloomFiltering.class);
+    job.setMapperClass(BloomFilteringMapper.class);
+    job.setNumReduceTasks(0);
+    job.setOutputKeyClass(Text.class);
+    job.setOutputValueClass(NullWritable.class);
+    FileInputFormat.addInputPath(job, new Path(otherArgs[0]));
+    FileOutputFormat.setOutputPath(job, new Path(otherArgs[2]));
 
-		job.addCacheFile(FileSystem.get(conf)
-				.makeQualified(new Path(otherArgs[1])).toUri());
+    job.addCacheFile(FileSystem.get(conf).makeQualified(new Path(otherArgs[1]))
+        .toUri());
 
-		System.exit(job.waitForCompletion(true) ? 0 : 1);
-	}
+    System.exit(job.waitForCompletion(true) ? 0 : 1);
+  }
 }

@@ -23,120 +23,116 @@ import com.oreilly.mrdp.utils.MRDPUtils;
 
 public class ReplicatedJoinDriver {
 
-	public static class ReplicatedJoinMapper extends
-			Mapper<Object, Text, Text, Text> {
+  public static class ReplicatedJoinMapper extends
+      Mapper<Object, Text, Text, Text> {
 
-		private HashMap<String, String> userIdToInfo = new HashMap<String, String>();
+    private HashMap<String, String> userIdToInfo = new HashMap<String, String>();
 
-		private Text outvalue = new Text();
-		private String joinType = null;
+    private Text outvalue = new Text();
+    private String joinType = null;
 
-		@Override
-		public void setup(Context context) throws IOException,
-				InterruptedException {
-			try {
-				URI[] files = context.getCacheFiles();
+    @Override
+    public void setup(Context context) throws IOException, InterruptedException {
+      try {
+        URI[] files = context.getCacheFiles();
 
-				if (files == null || files.length == 0) {
-					throw new RuntimeException(
-							"User information is not set in DistributedCache");
-				}
+        if (files == null || files.length == 0) {
+          throw new RuntimeException(
+              "User information is not set in DistributedCache");
+        }
 
-				// Read all files in the DistributedCache
-				for (URI p : files) {
-					BufferedReader rdr = new BufferedReader(
-							new InputStreamReader(
-									new GZIPInputStream(new FileInputStream(
-											new File(p.toString())))));
+        // Read all files in the DistributedCache
+        for (URI p : files) {
+          BufferedReader rdr = new BufferedReader(new InputStreamReader(
+              new GZIPInputStream(new FileInputStream(new File(p.toString())))));
 
-					String line;
-					// For each record in the user file
-					while ((line = rdr.readLine()) != null) {
+          String line;
+          // For each record in the user file
+          while ((line = rdr.readLine()) != null) {
 
-						// Get the user ID for this record
-						Map<String, String> parsed = MRDPUtils
-								.transformXmlToMap(line);
-						String userId = parsed.get("Id");
+            // Get the user ID for this record
+            Map<String, String> parsed = MRDPUtils.transformXmlToMap(line);
+            String userId = parsed.get("Id");
 
-						if (userId != null) {
-							// Map the user ID to the record
-							userIdToInfo.put(userId, line);
-						}
-					}
+            if (userId != null) {
+              // Map the user ID to the record
+              userIdToInfo.put(userId, line);
+            }
+          }
 
-					rdr.close();
-				}
+          rdr.close();
+        }
 
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-			}
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
 
-			// Get the join type
-			joinType = context.getConfiguration().get("join.type");
-		}
+      // Get the join type
+      joinType = context.getConfiguration().get("join.type");
+    }
 
-		@Override
-		public void map(Object key, Text value, Context context)
-				throws IOException, InterruptedException {
+    @Override
+    public void map(Object key, Text value, Context context)
+        throws IOException, InterruptedException {
 
-			// Parse the input string into a nice map
-			Map<String, String> parsed = MRDPUtils.transformXmlToMap(value
-					.toString());
+      // Parse the input string into a nice map
+      Map<String, String> parsed = MRDPUtils
+          .transformXmlToMap(value.toString());
 
-			String userId = parsed.get("UserId");
+      String userId = parsed.get("UserId");
 
-			if (userId == null) {
-				return;
-			}
+      if (userId == null) {
+        return;
+      }
 
-			String userInformation = userIdToInfo.get(userId);
+      String userInformation = userIdToInfo.get(userId);
 
-			// If the user information is not null, then output
-			if (userInformation != null) {
-				outvalue.set(userInformation);
-				context.write(value, outvalue);
-			} else if (joinType.equalsIgnoreCase("leftouter")) {
-				// If we are doing a left outer join, output the record with an
-				// empty value
-				context.write(value, new Text(""));
-			}
-		}
-	}
+      // If the user information is not null, then output
+      if (userInformation != null) {
+        outvalue.set(userInformation);
+        context.write(value, outvalue);
+      } else if (joinType.equalsIgnoreCase("leftouter")) {
+        // If we are doing a left outer join, output the record with an
+        // empty value
+        context.write(value, new Text(""));
+      }
+    }
+  }
 
-	public static void main(String[] args) throws Exception {
-		Configuration conf = new Configuration();
-		String[] otherArgs = new GenericOptionsParser(conf, args)
-				.getRemainingArgs();
-		if (otherArgs.length != 4) {
-			System.err
-					.println("Usage: ReplicatedJoin <user data> <comment data> <out> [inner|leftouter]");
-			System.exit(1);
-		}
+  public static void main(String[] args) throws Exception {
+    Configuration conf = new Configuration();
+    String[] otherArgs = new GenericOptionsParser(conf, args)
+        .getRemainingArgs();
+    if (otherArgs.length != 4) {
+      System.err
+          .println("Usage: ReplicatedJoin <user data> <comment data> <out> [inner|leftouter]");
+      System.exit(1);
+    }
 
-		String joinType = otherArgs[3];
-		if (!(joinType.equalsIgnoreCase("inner") || joinType
-				.equalsIgnoreCase("leftouter"))) {
-			System.err.println("Join type not set to inner or leftouter");
-			System.exit(2);
-		}
+    String joinType = otherArgs[3];
+    if (!(joinType.equalsIgnoreCase("inner") || joinType
+        .equalsIgnoreCase("leftouter"))) {
+      System.err.println("Join type not set to inner or leftouter");
+      System.exit(2);
+    }
 
-		// Configure the join type
-		Job job = Job.getInstance(conf, "Replicated Join");
-		job.getConfiguration().set("join.type", joinType);
-		job.setJarByClass(ReplicatedJoinDriver.class);
+    // Configure the join type
+    Job job = Job.getInstance(conf, "Replicated Join");
+    job.getConfiguration().set("join.type", joinType);
+    job.setJarByClass(ReplicatedJoinDriver.class);
 
-		job.setMapperClass(ReplicatedJoinMapper.class);
-		job.setNumReduceTasks(0);
+    job.setMapperClass(ReplicatedJoinMapper.class);
+    job.setNumReduceTasks(0);
 
-		TextInputFormat.setInputPaths(job, new Path(otherArgs[1]));
-		TextOutputFormat.setOutputPath(job, new Path(otherArgs[2]));
+    TextInputFormat.setInputPaths(job, new Path(otherArgs[1]));
+    TextOutputFormat.setOutputPath(job, new Path(otherArgs[2]));
 
-		job.setOutputKeyClass(Text.class);
-		job.setOutputValueClass(Text.class);
+    job.setOutputKeyClass(Text.class);
+    job.setOutputValueClass(Text.class);
 
-		// Configure the DistributedCache
-		job.addCacheFile(new Path(otherArgs[0]).toUri());
+    // Configure the DistributedCache
+    job.addCacheFile(new Path(otherArgs[0]).toUri());
 
-		System.exit(job.waitForCompletion(true) ? 0 : 3);
-	}
+    System.exit(job.waitForCompletion(true) ? 0 : 3);
+  }
 }

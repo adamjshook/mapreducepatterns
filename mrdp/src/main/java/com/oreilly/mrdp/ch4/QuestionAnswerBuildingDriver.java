@@ -31,196 +31,188 @@ import org.xml.sax.InputSource;
 
 public class QuestionAnswerBuildingDriver {
 
-	public static class PostCommentMapper extends
-			Mapper<Object, Text, Text, Text> {
+  public static class PostCommentMapper extends
+      Mapper<Object, Text, Text, Text> {
 
-		private DocumentBuilderFactory dbf = DocumentBuilderFactory
-				.newInstance();
-		private Text outkey = new Text();
-		private Text outvalue = new Text();
+    private DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+    private Text outkey = new Text();
+    private Text outvalue = new Text();
 
-		@Override
-		public void map(Object key, Text value, Context context)
-				throws IOException, InterruptedException {
+    @Override
+    public void map(Object key, Text value, Context context)
+        throws IOException, InterruptedException {
 
-			// Parse the post/comment XML hierarchy into an Element
-			Element post = getXmlElementFromString(value.toString());
+      // Parse the post/comment XML hierarchy into an Element
+      Element post = getXmlElementFromString(value.toString());
 
-			int postType = Integer.parseInt(post.getAttribute("PostTypeId"));
+      int postType = Integer.parseInt(post.getAttribute("PostTypeId"));
 
-			// If postType is 1, it is a question
-			if (postType == 1) {
-				outkey.set(post.getAttribute("Id"));
-				outvalue.set("Q" + value.toString());
-			} else {
-				// Else, it is an answer
-				outkey.set(post.getAttribute("ParentId"));
-				outvalue.set("A" + value.toString());
-			}
+      // If postType is 1, it is a question
+      if (postType == 1) {
+        outkey.set(post.getAttribute("Id"));
+        outvalue.set("Q" + value.toString());
+      } else {
+        // Else, it is an answer
+        outkey.set(post.getAttribute("ParentId"));
+        outvalue.set("A" + value.toString());
+      }
 
-			context.write(outkey, outvalue);
-		}
+      context.write(outkey, outvalue);
+    }
 
-		private Element getXmlElementFromString(String xml) {
-			try {
-				// Create a new document builder
-				DocumentBuilder bldr = dbf.newDocumentBuilder();
+    private Element getXmlElementFromString(String xml) {
+      try {
+        // Create a new document builder
+        DocumentBuilder bldr = dbf.newDocumentBuilder();
 
-				// Parse the XML string and return the first element
-				return bldr.parse(new InputSource(new StringReader(xml)))
-						.getDocumentElement();
-			} catch (Exception e) {
-				return null;
-			}
-		}
-	}
+        // Parse the XML string and return the first element
+        return bldr.parse(new InputSource(new StringReader(xml)))
+            .getDocumentElement();
+      } catch (Exception e) {
+        return null;
+      }
+    }
+  }
 
-	public static class QuestionAnswerReducer extends
-			Reducer<Text, Text, Text, NullWritable> {
+  public static class QuestionAnswerReducer extends
+      Reducer<Text, Text, Text, NullWritable> {
 
-		private ArrayList<String> answers = new ArrayList<String>();
-		private DocumentBuilderFactory dbf = DocumentBuilderFactory
-				.newInstance();
-		private String question = null;
+    private ArrayList<String> answers = new ArrayList<String>();
+    private DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+    private String question = null;
 
-		@Override
-		public void reduce(Text key, Iterable<Text> values, Context context)
-				throws IOException, InterruptedException {
-			// Reset variables
-			question = null;
-			answers.clear();
+    @Override
+    public void reduce(Text key, Iterable<Text> values, Context context)
+        throws IOException, InterruptedException {
+      // Reset variables
+      question = null;
+      answers.clear();
 
-			// For each input value
-			for (Text t : values) {
-				// If this is the post record, store it, minus the flag
-				if (t.charAt(0) == 'Q') {
-					question = t.toString().substring(1, t.toString().length())
-							.trim();
-				} else {
-					// Else, it is a comment record. Add it to the list, minus
-					// the flag
-					answers.add(t.toString()
-							.substring(1, t.toString().length()).trim());
-				}
-			}
+      // For each input value
+      for (Text t : values) {
+        // If this is the post record, store it, minus the flag
+        if (t.charAt(0) == 'Q') {
+          question = t.toString().substring(1, t.toString().length()).trim();
+        } else {
+          // Else, it is a comment record. Add it to the list, minus
+          // the flag
+          answers.add(t.toString().substring(1, t.toString().length()).trim());
+        }
+      }
 
-			// If post is not null
-			if (question != null) {
-				// nest the comments underneath the post element
-				String postWithCommentChildren = nestElements(question, answers);
+      // If post is not null
+      if (question != null) {
+        // nest the comments underneath the post element
+        String postWithCommentChildren = nestElements(question, answers);
 
-				// write out the XML
-				context.write(new Text(postWithCommentChildren),
-						NullWritable.get());
-			}
-		}
+        // write out the XML
+        context.write(new Text(postWithCommentChildren), NullWritable.get());
+      }
+    }
 
-		private String nestElements(String post, List<String> comments) {
-			try {
-				// Create the new document to build the XML
-				DocumentBuilder bldr = dbf.newDocumentBuilder();
-				Document doc = bldr.newDocument();
+    private String nestElements(String post, List<String> comments) {
+      try {
+        // Create the new document to build the XML
+        DocumentBuilder bldr = dbf.newDocumentBuilder();
+        Document doc = bldr.newDocument();
 
-				// Copy parent node to document
-				Element postEl = getXmlElementFromString(post);
-				Element toAddPostEl = doc.createElement("question");
+        // Copy parent node to document
+        Element postEl = getXmlElementFromString(post);
+        Element toAddPostEl = doc.createElement("question");
 
-				// Copy the attributes of the original post element to the new
-				// one
-				copyAttributesToElement(postEl.getAttributes(), toAddPostEl);
+        // Copy the attributes of the original post element to the new
+        // one
+        copyAttributesToElement(postEl.getAttributes(), toAddPostEl);
 
-				// For each comment, copy it to the "post" node
-				for (String commentXml : comments) {
-					Element commentEl = getXmlElementFromString(commentXml);
-					Element toAddCommentEl = doc.createElement("answer");
+        // For each comment, copy it to the "post" node
+        for (String commentXml : comments) {
+          Element commentEl = getXmlElementFromString(commentXml);
+          Element toAddCommentEl = doc.createElement("answer");
 
-					// Copy the attributes of the original comment element to
-					// the new one
-					copyAttributesToElement(commentEl.getAttributes(),
-							toAddCommentEl);
+          // Copy the attributes of the original comment element to
+          // the new one
+          copyAttributesToElement(commentEl.getAttributes(), toAddCommentEl);
 
-					// Add the copied comment to the post element
-					toAddPostEl.appendChild(toAddCommentEl);
-				}
+          // Add the copied comment to the post element
+          toAddPostEl.appendChild(toAddCommentEl);
+        }
 
-				// Add the post element to the document
-				doc.appendChild(toAddPostEl);
+        // Add the post element to the document
+        doc.appendChild(toAddPostEl);
 
-				// Transform the document into a String of XML and return
-				return transformDocumentToString(doc);
+        // Transform the document into a String of XML and return
+        return transformDocumentToString(doc);
 
-			} catch (Exception e) {
-				return null;
-			}
-		}
+      } catch (Exception e) {
+        return null;
+      }
+    }
 
-		private Element getXmlElementFromString(String xml) {
-			try {
-				// Create a new document builder
-				DocumentBuilder bldr = dbf.newDocumentBuilder();
+    private Element getXmlElementFromString(String xml) {
+      try {
+        // Create a new document builder
+        DocumentBuilder bldr = dbf.newDocumentBuilder();
 
-				// Parse the XML string and return the first element
-				return bldr.parse(new InputSource(new StringReader(xml)))
-						.getDocumentElement();
-			} catch (Exception e) {
-				return null;
-			}
-		}
+        // Parse the XML string and return the first element
+        return bldr.parse(new InputSource(new StringReader(xml)))
+            .getDocumentElement();
+      } catch (Exception e) {
+        return null;
+      }
+    }
 
-		private void copyAttributesToElement(NamedNodeMap attributes,
-				Element element) {
+    private void copyAttributesToElement(NamedNodeMap attributes,
+        Element element) {
 
-			// For each attribute, copy it to the element
-			for (int i = 0; i < attributes.getLength(); ++i) {
-				Attr toCopy = (Attr) attributes.item(i);
-				element.setAttribute(toCopy.getName(), toCopy.getValue());
-			}
-		}
+      // For each attribute, copy it to the element
+      for (int i = 0; i < attributes.getLength(); ++i) {
+        Attr toCopy = (Attr) attributes.item(i);
+        element.setAttribute(toCopy.getName(), toCopy.getValue());
+      }
+    }
 
-		private String transformDocumentToString(Document doc) {
-			try {
-				TransformerFactory tf = TransformerFactory.newInstance();
-				Transformer transformer = tf.newTransformer();
-				transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION,
-						"yes");
-				StringWriter writer = new StringWriter();
-				transformer.transform(new DOMSource(doc), new StreamResult(
-						writer));
-				// Replace all new line characters with an empty string to have
-				// one record per line.
-				return writer.getBuffer().toString().replaceAll("\n|\r", "");
-			} catch (Exception e) {
-				return null;
-			}
-		}
-	}
+    private String transformDocumentToString(Document doc) {
+      try {
+        TransformerFactory tf = TransformerFactory.newInstance();
+        Transformer transformer = tf.newTransformer();
+        transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+        StringWriter writer = new StringWriter();
+        transformer.transform(new DOMSource(doc), new StreamResult(writer));
+        // Replace all new line characters with an empty string to have
+        // one record per line.
+        return writer.getBuffer().toString().replaceAll("\n|\r", "");
+      } catch (Exception e) {
+        return null;
+      }
+    }
+  }
 
-	public static void main(String[] args) throws Exception {
-		Configuration conf = new Configuration();
-		String[] otherArgs = new GenericOptionsParser(conf, args)
-				.getRemainingArgs();
-		if (otherArgs.length != 2) {
-			System.err
-					.println("Usage: QuestionAnswerHierarchy <post-comment> <outdir>");
-			System.exit(1);
-		}
+  public static void main(String[] args) throws Exception {
+    Configuration conf = new Configuration();
+    String[] otherArgs = new GenericOptionsParser(conf, args)
+        .getRemainingArgs();
+    if (otherArgs.length != 2) {
+      System.err
+          .println("Usage: QuestionAnswerHierarchy <post-comment> <outdir>");
+      System.exit(1);
+    }
 
-		Job job = Job.getInstance(conf, "QuestionAnswerHierarchy");
-		job.setJarByClass(QuestionAnswerBuildingDriver.class);
+    Job job = Job.getInstance(conf, "QuestionAnswerHierarchy");
+    job.setJarByClass(QuestionAnswerBuildingDriver.class);
 
-		job.setMapperClass(PostCommentMapper.class);
+    job.setMapperClass(PostCommentMapper.class);
 
-		job.setInputFormatClass(TextInputFormat.class);
-		TextInputFormat.setInputPaths(job, new Path(otherArgs[0]));
+    job.setInputFormatClass(TextInputFormat.class);
+    TextInputFormat.setInputPaths(job, new Path(otherArgs[0]));
 
-		job.setReducerClass(QuestionAnswerReducer.class);
+    job.setReducerClass(QuestionAnswerReducer.class);
 
-		job.setOutputFormatClass(TextOutputFormat.class);
-		TextOutputFormat.setOutputPath(job, new Path(otherArgs[1]));
+    job.setOutputFormatClass(TextOutputFormat.class);
+    TextOutputFormat.setOutputPath(job, new Path(otherArgs[1]));
 
-		job.setOutputKeyClass(Text.class);
-		job.setOutputValueClass(Text.class);
+    job.setOutputKeyClass(Text.class);
+    job.setOutputValueClass(Text.class);
 
-		System.exit(job.waitForCompletion(true) ? 0 : 1);
-	}
+    System.exit(job.waitForCompletion(true) ? 0 : 1);
+  }
 }

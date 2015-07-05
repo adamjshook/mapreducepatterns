@@ -30,210 +30,208 @@ import redis.clients.jedis.Jedis;
 
 public class PartitionPruningOutputDriver {
 
-	private static final HashMap<Integer, String> MONTH_FROM_INT = new HashMap<Integer, String>();
+  private static final HashMap<Integer, String> MONTH_FROM_INT = new HashMap<Integer, String>();
 
-	static {
-		MONTH_FROM_INT.put(0, "JAN");
-		MONTH_FROM_INT.put(1, "FEB");
-		MONTH_FROM_INT.put(2, "MAR");
-		MONTH_FROM_INT.put(3, "APR");
-		MONTH_FROM_INT.put(4, "MAY");
-		MONTH_FROM_INT.put(5, "JUN");
-		MONTH_FROM_INT.put(6, "JUL");
-		MONTH_FROM_INT.put(7, "AUG");
-		MONTH_FROM_INT.put(8, "SEP");
-		MONTH_FROM_INT.put(9, "OCT");
-		MONTH_FROM_INT.put(10, "NOV");
-		MONTH_FROM_INT.put(11, "DEC");
-	}
+  static {
+    MONTH_FROM_INT.put(0, "JAN");
+    MONTH_FROM_INT.put(1, "FEB");
+    MONTH_FROM_INT.put(2, "MAR");
+    MONTH_FROM_INT.put(3, "APR");
+    MONTH_FROM_INT.put(4, "MAY");
+    MONTH_FROM_INT.put(5, "JUN");
+    MONTH_FROM_INT.put(6, "JUL");
+    MONTH_FROM_INT.put(7, "AUG");
+    MONTH_FROM_INT.put(8, "SEP");
+    MONTH_FROM_INT.put(9, "OCT");
+    MONTH_FROM_INT.put(10, "NOV");
+    MONTH_FROM_INT.put(11, "DEC");
+  }
 
-	public static class RedisLastAccessOutputMapper extends
-			Mapper<Object, Text, RedisKey, Text> {
+  public static class RedisLastAccessOutputMapper extends
+      Mapper<Object, Text, RedisKey, Text> {
 
-		// This object will format the creation date string into a Date object
-		private final static SimpleDateFormat frmt = new SimpleDateFormat(
-				"yyyy-MM-dd'T'HH:mm:ss.SSS");
+    // This object will format the creation date string into a Date object
+    private final static SimpleDateFormat frmt = new SimpleDateFormat(
+        "yyyy-MM-dd'T'HH:mm:ss.SSS");
 
-		private RedisKey outkey = new RedisKey();
-		private Text outvalue = new Text();
+    private RedisKey outkey = new RedisKey();
+    private Text outvalue = new Text();
 
-		@Override
-		public void map(Object key, Text value, Context context)
-				throws IOException, InterruptedException {
+    @Override
+    public void map(Object key, Text value, Context context)
+        throws IOException, InterruptedException {
 
-			Map<String, String> parsed = MRDPUtils.transformXmlToMap(value
-					.toString());
+      Map<String, String> parsed = MRDPUtils
+          .transformXmlToMap(value.toString());
 
-			String userId = parsed.get("Id");
-			String reputation = parsed.get("Reputation");
+      String userId = parsed.get("Id");
+      String reputation = parsed.get("Reputation");
 
-			// Grab the last access date
-			String strDate = parsed.get("LastAccessDate");
+      // Grab the last access date
+      String strDate = parsed.get("LastAccessDate");
 
-			if (userId == null || reputation == null || strDate == null) {
-				return;
-			}
+      if (userId == null || reputation == null || strDate == null) {
+        return;
+      }
 
-			try {
-				// Parse the string into a Calendar object
-				Calendar cal = Calendar.getInstance();
-				cal.setTime(frmt.parse(strDate));
+      try {
+        // Parse the string into a Calendar object
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(frmt.parse(strDate));
 
-				// Set our output key and values
-				outkey.setLastAccessMonth(cal.get(Calendar.MONTH));
-				outkey.setField(userId);
-				outvalue.set(reputation);
+        // Set our output key and values
+        outkey.setLastAccessMonth(cal.get(Calendar.MONTH));
+        outkey.setField(userId);
+        outvalue.set(reputation);
 
-				context.write(outkey, outvalue);
-			} catch (ParseException e) {
-				e.printStackTrace();
-			}
-		}
-	}
+        context.write(outkey, outvalue);
+      } catch (ParseException e) {
+        e.printStackTrace();
+      }
+    }
+  }
 
-	public static class RedisKey implements WritableComparable<RedisKey> {
+  public static class RedisKey implements WritableComparable<RedisKey> {
 
-		private int lastAccessMonth = 0;
-		private Text field = new Text();
+    private int lastAccessMonth = 0;
+    private Text field = new Text();
 
-		public int getLastAccessMonth() {
-			return this.lastAccessMonth;
-		}
+    public int getLastAccessMonth() {
+      return this.lastAccessMonth;
+    }
 
-		public void setLastAccessMonth(int lastAccessMonth) {
-			this.lastAccessMonth = lastAccessMonth;
-		}
+    public void setLastAccessMonth(int lastAccessMonth) {
+      this.lastAccessMonth = lastAccessMonth;
+    }
 
-		public Text getField() {
-			return this.field;
-		}
+    public Text getField() {
+      return this.field;
+    }
 
-		public void setField(String field) {
-			this.field.set(field);
-		}
+    public void setField(String field) {
+      this.field.set(field);
+    }
 
-		@Override
-		public void readFields(DataInput in) throws IOException {
-			lastAccessMonth = in.readInt();
-			this.field.readFields(in);
-		}
+    @Override
+    public void readFields(DataInput in) throws IOException {
+      lastAccessMonth = in.readInt();
+      this.field.readFields(in);
+    }
 
-		@Override
-		public void write(DataOutput out) throws IOException {
-			out.writeInt(lastAccessMonth);
-			this.field.write(out);
-		}
+    @Override
+    public void write(DataOutput out) throws IOException {
+      out.writeInt(lastAccessMonth);
+      this.field.write(out);
+    }
 
-		@Override
-		public int compareTo(RedisKey rhs) {
-			if (this.lastAccessMonth == rhs.getLastAccessMonth()) {
-				return this.field.compareTo(rhs.getField());
-			} else {
-				return this.lastAccessMonth < rhs.getLastAccessMonth() ? -1 : 1;
-			}
-		}
+    @Override
+    public int compareTo(RedisKey rhs) {
+      if (this.lastAccessMonth == rhs.getLastAccessMonth()) {
+        return this.field.compareTo(rhs.getField());
+      } else {
+        return this.lastAccessMonth < rhs.getLastAccessMonth() ? -1 : 1;
+      }
+    }
 
-		@Override
-		public String toString() {
-			return this.lastAccessMonth + "\t" + this.field.toString();
-		}
+    @Override
+    public String toString() {
+      return this.lastAccessMonth + "\t" + this.field.toString();
+    }
 
-		@Override
-		public int hashCode() {
-			return toString().hashCode();
-		}
-	}
+    @Override
+    public int hashCode() {
+      return toString().hashCode();
+    }
+  }
 
-	public static class RedisLastAccessOutputFormat extends
-			OutputFormat<RedisKey, Text> {
+  public static class RedisLastAccessOutputFormat extends
+      OutputFormat<RedisKey, Text> {
 
-		@Override
-		public RecordWriter<RedisKey, Text> getRecordWriter(
-				TaskAttemptContext job) throws IOException,
-				InterruptedException {
-			return new RedisLastAccessRecordWriter();
-		}
+    @Override
+    public RecordWriter<RedisKey, Text> getRecordWriter(TaskAttemptContext job)
+        throws IOException, InterruptedException {
+      return new RedisLastAccessRecordWriter();
+    }
 
-		@Override
-		public void checkOutputSpecs(JobContext context) throws IOException,
-				InterruptedException {
-		}
+    @Override
+    public void checkOutputSpecs(JobContext context) throws IOException,
+        InterruptedException {
+    }
 
-		@Override
-		public OutputCommitter getOutputCommitter(TaskAttemptContext context)
-				throws IOException, InterruptedException {
-			return (new NullOutputFormat<Text, Text>())
-					.getOutputCommitter(context);
-		}
+    @Override
+    public OutputCommitter getOutputCommitter(TaskAttemptContext context)
+        throws IOException, InterruptedException {
+      return (new NullOutputFormat<Text, Text>()).getOutputCommitter(context);
+    }
 
-		public static class RedisLastAccessRecordWriter extends
-				RecordWriter<RedisKey, Text> {
+    public static class RedisLastAccessRecordWriter extends
+        RecordWriter<RedisKey, Text> {
 
-			private HashMap<Integer, Jedis> jedisMap = new HashMap<Integer, Jedis>();
+      private HashMap<Integer, Jedis> jedisMap = new HashMap<Integer, Jedis>();
 
-			public RedisLastAccessRecordWriter() {
-				// Create a connection to Redis for each host
-				int i = 0;
-				for (String host : MRDPUtils.REDIS_INSTANCES) {
-					Jedis jedis = new Jedis(host);
-					jedis.connect();
-					jedisMap.put(i, jedis);
-					jedisMap.put(i + 1, jedis);
-					i += 2;
-				}
-			}
+      public RedisLastAccessRecordWriter() {
+        // Create a connection to Redis for each host
+        int i = 0;
+        for (String host : MRDPUtils.REDIS_INSTANCES) {
+          Jedis jedis = new Jedis(host);
+          jedis.connect();
+          jedisMap.put(i, jedis);
+          jedisMap.put(i + 1, jedis);
+          i += 2;
+        }
+      }
 
-			@Override
-			public void write(RedisKey key, Text value) throws IOException,
-					InterruptedException {
-				// Get the Jedis instance that this key/value pair will be
-				// written to -- (0,1)->0, (2-3)->1, ... , (10-11)->5
-				Jedis j = jedisMap.get(key.getLastAccessMonth());
+      @Override
+      public void write(RedisKey key, Text value) throws IOException,
+          InterruptedException {
+        // Get the Jedis instance that this key/value pair will be
+        // written to -- (0,1)->0, (2-3)->1, ... , (10-11)->5
+        Jedis j = jedisMap.get(key.getLastAccessMonth());
 
-				// Write the key/value pair
-				j.hset(MONTH_FROM_INT.get(key.getLastAccessMonth()), key
-						.getField().toString(), value.toString());
-			}
+        // Write the key/value pair
+        j.hset(MONTH_FROM_INT.get(key.getLastAccessMonth()), key.getField()
+            .toString(), value.toString());
+      }
 
-			@Override
-			public void close(TaskAttemptContext context) throws IOException,
-					InterruptedException {
-				// For each jedis instance, disconnect it
-				for (Jedis jedis : jedisMap.values()) {
-					jedis.disconnect();
-				}
-			}
-		}
-	}
+      @Override
+      public void close(TaskAttemptContext context) throws IOException,
+          InterruptedException {
+        // For each jedis instance, disconnect it
+        for (Jedis jedis : jedisMap.values()) {
+          jedis.disconnect();
+        }
+      }
+    }
+  }
 
-	public static void main(String[] args) throws Exception {
-		Configuration conf = new Configuration();
-		String[] otherArgs = new GenericOptionsParser(conf, args)
-				.getRemainingArgs();
+  public static void main(String[] args) throws Exception {
+    Configuration conf = new Configuration();
+    String[] otherArgs = new GenericOptionsParser(conf, args)
+        .getRemainingArgs();
 
-		if (otherArgs.length != 1) {
-			System.err.println("Usage: PartitionPruningOutput <user data>");
-			System.exit(1);
-		}
+    if (otherArgs.length != 1) {
+      System.err.println("Usage: PartitionPruningOutput <user data>");
+      System.exit(1);
+    }
 
-		Path inputPath = new Path(otherArgs[0]);
+    Path inputPath = new Path(otherArgs[0]);
 
-		Job job = Job.getInstance(conf, "Redis Last Access Output");
-		job.setJarByClass(PartitionPruningOutputDriver.class);
+    Job job = Job.getInstance(conf, "Redis Last Access Output");
+    job.setJarByClass(PartitionPruningOutputDriver.class);
 
-		job.setMapperClass(RedisLastAccessOutputMapper.class);
-		job.setNumReduceTasks(0);
+    job.setMapperClass(RedisLastAccessOutputMapper.class);
+    job.setNumReduceTasks(0);
 
-		job.setInputFormatClass(TextInputFormat.class);
-		TextInputFormat.setInputPaths(job, inputPath);
+    job.setInputFormatClass(TextInputFormat.class);
+    TextInputFormat.setInputPaths(job, inputPath);
 
-		job.setOutputFormatClass(RedisLastAccessOutputFormat.class);
+    job.setOutputFormatClass(RedisLastAccessOutputFormat.class);
 
-		job.setOutputKeyClass(RedisKey.class);
-		job.setOutputValueClass(Text.class);
+    job.setOutputKeyClass(RedisKey.class);
+    job.setOutputValueClass(Text.class);
 
-		int code = job.waitForCompletion(true) ? 0 : 2;
+    int code = job.waitForCompletion(true) ? 0 : 2;
 
-		System.exit(code);
-	}
+    System.exit(code);
+  }
 }
