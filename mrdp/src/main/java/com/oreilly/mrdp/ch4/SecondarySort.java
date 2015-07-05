@@ -47,12 +47,12 @@ public class SecondarySort extends Configured implements Tool {
 			this.user.set(text);
 		}
 
-		public Date getDate() {
-			return date;
-		}
-
 		public void setDate(Date date) {
 			this.date.setTime(date.getTime());
+		}
+
+		public Date getDate() {
+			return date;
 		}
 
 		@Override
@@ -69,8 +69,10 @@ public class SecondarySort extends Configured implements Tool {
 
 		@Override
 		public int compareTo(UserDateWritable o) {
+			// First, compare the user IDs together
 			int c = this.getUser().compareTo(o.getUser());
 
+			// If the user IDs are equal, then compare the dates
 			if (c == 0) {
 				c = this.getDate().compareTo(o.getDate());
 			}
@@ -243,10 +245,15 @@ public class SecondarySort extends Configured implements Tool {
 			// (undefined)
 			if (postId != null && userId != null && userId != "-1"
 					&& date != null) {
+
+				// Set the key's user ID
 				outkey.getUser().set(userId);
+
+				// Set the value's post ID
 				outvalue.setId(Long.parseLong(postId));
 
 				try {
+					// Set the date to both the
 					Date d = frmt.parse(date);
 					outkey.setDate(d);
 					outvalue.setDate(d);
@@ -279,6 +286,8 @@ public class SecondarySort extends Configured implements Tool {
 
 			Date previous = null;
 
+			// Iterate through our values, which is sorted by timestamp due to
+			// the secondary sort
 			for (IdDateWritable t : values) {
 				if (previous == null) {
 					// set our initial date and the ID
@@ -337,16 +346,10 @@ public class SecondarySort extends Configured implements Tool {
 			super(UserDateWritable.class, true);
 		}
 
-		@Override
-		public int compare(Object a, Object b) {
-			UserDateWritable k1 = (UserDateWritable) a;
-			UserDateWritable k2 = (UserDateWritable) b;
-			return k1.getUser().compareTo(k2.getUser());
-		}
-
 		@SuppressWarnings("rawtypes")
 		@Override
 		public int compare(WritableComparable a, WritableComparable b) {
+			// Compare the two user IDs together, ignoring the timestamp
 			UserDateWritable k1 = (UserDateWritable) a;
 			UserDateWritable k2 = (UserDateWritable) b;
 			return k1.getUser().compareTo(k2.getUser());
@@ -377,7 +380,6 @@ public class SecondarySort extends Configured implements Tool {
 		TextInputFormat.setInputPaths(job, input);
 
 		// Set the output format to a text file
-		job.setOutputFormatClass(TextOutputFormat.class);
 		TextOutputFormat.setOutputPath(job, output);
 
 		job.setPartitionerClass(UserPartitioner.class);
