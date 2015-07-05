@@ -99,7 +99,7 @@ public class ReduceSideJoinDriver {
 			for (Text t : values) {
 				if (t.charAt(0) == 'A') {
 					listA.add(new Text(t.toString().substring(1)));
-				} else if (t.charAt('0') == 'B') {
+				} else if (t.charAt(0) == 'B') {
 					listB.add(new Text(t.toString().substring(1)));
 				}
 			}
