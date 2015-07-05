@@ -284,10 +284,6 @@ public class JoinWithSecondarySort extends Configured implements Tool {
     }
   }
 
-  public static void main(String[] args) throws Exception {
-    ToolRunner.run(new Configuration(), new JoinWithSecondarySort(), args);
-  }
-
   @Override
   public int run(String[] args) throws Exception {
     if (args.length != 4) {
@@ -302,7 +298,8 @@ public class JoinWithSecondarySort extends Configured implements Tool {
     String joinType = args[3];
 
     // validate the join type. throws an exception if not a valid string
-    UserJoinReducer.JoinType.fromString(args[3]);
+    UserJoinReducer.JoinType.fromString(joinType);
+    
     Job job = Job.getInstance(getConf(), "Join with Secondary Sort");
 
     // Configure the join type
@@ -329,5 +326,9 @@ public class JoinWithSecondarySort extends Configured implements Tool {
     job.setOutputValueClass(Text.class);
 
     return job.waitForCompletion(true) ? 0 : 1;
+  }
+
+  public static void main(String[] args) throws Exception {
+    ToolRunner.run(new Configuration(), new JoinWithSecondarySort(), args);
   }
 }

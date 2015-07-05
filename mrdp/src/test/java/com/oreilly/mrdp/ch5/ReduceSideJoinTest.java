@@ -4,11 +4,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.oreilly.mrdp.ch5.JoinWithSecondarySort.TextPair;
-import com.oreilly.mrdp.ch5.JoinWithSecondarySort.TextPairGroupComparator;
-import com.oreilly.mrdp.ch5.JoinWithSecondarySort.CommentJoinMapper;
-import com.oreilly.mrdp.ch5.JoinWithSecondarySort.UserJoinMapper;
-import com.oreilly.mrdp.ch5.JoinWithSecondarySort.UserJoinReducer;
+import com.oreilly.mrdp.ch5.ReduceSideJoin.CommentJoinMapper;
+import com.oreilly.mrdp.ch5.ReduceSideJoin.UserJoinMapper;
+import com.oreilly.mrdp.ch5.ReduceSideJoin.UserJoinReducer;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mrunit.mapreduce.MultipleInputsMapReduceDriver;
@@ -17,9 +15,9 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-public class JoinWithSecondarySortTest {
+public class ReduceSideJoinTest {
 
-  private MultipleInputsMapReduceDriver<TextPair, Text, Text, Text> driver = null;
+  private MultipleInputsMapReduceDriver<Text, Text, Text, Text> driver = null;
 
   @Before
   public void setup() throws Exception {
@@ -1025,7 +1023,6 @@ public class JoinWithSecondarySortTest {
     runTest("anti", dataA, dataB, output);
   }
 
-  @SuppressWarnings("unchecked")
   public void runTest(String joinType, List<Pair<Object, Text>> dataA,
       List<Pair<Object, Text>> dataB, List<Pair<Text, Text>> output)
       throws IOException {
@@ -1036,10 +1033,8 @@ public class JoinWithSecondarySortTest {
     driver.getConfiguration().set("join.type", joinType);
 
     driver.withMapper(userMapper).withMapper(commentMapper)
-        .withReducer(new UserJoinReducer())
-        .withKeyGroupingComparator(new TextPairGroupComparator())
-        .withAll(userMapper, dataA).withAll(commentMapper, dataB)
-        .withAllOutput(output);
+        .withReducer(new UserJoinReducer()).withAll(userMapper, dataA)
+        .withAll(commentMapper, dataB).withAllOutput(output);
 
     driver.runTest(false);
   }
