@@ -116,7 +116,7 @@ public class ChainMapperDriver {
 
             String reputation = userIdToReputation.get(key.toString());
             if (reputation != null) {
-                outkey.set(value.get() + "\t" + reputation);
+                outkey.set(key.toString() + "\t" + reputation);
                 context.write(outkey, value);
             }
         }

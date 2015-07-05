@@ -97,6 +97,8 @@ public class SmarterMedianStdDevDriver {
 							.getKey());
 
 					if (count != null) {
+					  // Set the value held within the LongWritable object
+					  // No need to put it back into outValue since this is an Object and not a POJO
 						count.set(count.get()
 								+ ((LongWritable) entry.getValue()).get());
 					} else {
