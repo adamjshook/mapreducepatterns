@@ -80,11 +80,7 @@ public class ReduceSideJoin extends Configured implements Tool {
 
   public static class UserJoinReducer extends Reducer<Text, Text, Text, Text> {
 
-    private ArrayList<Text> listA = new ArrayList<Text>();
-    private ArrayList<Text> listB = new ArrayList<Text>();
-    private JoinType joinType = null;
-
-    private enum JoinType {
+    public enum JoinType {
       INNER, LEFTOUTER, RIGHTOUTER, FULLOUTER, ANTI;
 
       public static JoinType fromString(String type) {
@@ -108,6 +104,10 @@ public class ReduceSideJoin extends Configured implements Tool {
       }
     }
 
+    private ArrayList<Text> listA = new ArrayList<Text>();
+    private ArrayList<Text> listB = new ArrayList<Text>();
+    private JoinType joinType = null;
+
     @Override
     public void setup(Context context) {
       // Get the type of join from our configuration
@@ -129,7 +129,7 @@ public class ReduceSideJoin extends Configured implements Tool {
       for (Text t : values) {
         if (t.charAt(0) == 'A') {
           listA.add(new Text(t.toString().substring(1)));
-        } else if (t.charAt(0) == 'B') {
+        } else /* if (t.charAt(0) == 'B') */{
           listB.add(new Text(t.toString().substring(1)));
         }
       }

@@ -161,13 +161,9 @@ public class JoinWithSecondarySort extends Configured implements Tool {
   public static class UserJoinReducer extends
       Reducer<TextPair, Text, Text, Text> {
 
-    private List<Text> dataFromA = new ArrayList<Text>();
-    private JoinType joinType = null;
-    private static final Text EMPTY_TEXT = new Text("");
-
-    private enum JoinType {
+    public enum JoinType {
       INNER, LEFTOUTER, RIGHTOUTER, FULLOUTER, ANTI;
-
+    
       public static JoinType fromString(String type) {
         if (type == null) {
           throw new InvalidParameterException(
@@ -188,6 +184,10 @@ public class JoinWithSecondarySort extends Configured implements Tool {
         }
       }
     }
+
+    private List<Text> dataFromA = new ArrayList<Text>();
+    private JoinType joinType = null;
+    private static final Text EMPTY_TEXT = new Text("");
 
     @Override
     public void setup(Context context) {
